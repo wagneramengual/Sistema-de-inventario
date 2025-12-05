@@ -2,7 +2,7 @@ let usuarioLogado = null;
 let listaBens = [];
 let processados = new Set();
 
-const API = "https://SEU_BACKEND_AQUI.up.railway.app";
+const API = "https://sistema-de-inventario-production-2c46.up.railway.app/";
 
 async function login() {
   const usuario = document.getElementById("usuario").value;
