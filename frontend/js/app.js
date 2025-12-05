@@ -2,7 +2,7 @@ async function login() {
   const usuario = document.getElementById("usuario").value;
   const senha = document.getElementById("senha").value;
 
-  const res = await fetch("https://seu-backend.onrender.com/auth/login", {
+  const res = await fetch("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ usuario, senha })
@@ -20,10 +20,7 @@ async function login() {
 }
 
 async function carregarInventario(centro) {
-  const res = await fetch(`https://seu-backend.onrender.com/inventario/${centro}`);
+  const res = await fetch("/inventario/" + centro);
   const lista = await res.json();
-
-  console.log("Bens carregados:", lista);
-
-  // Aqui você adapta para alimentar a lista do PWA
+  console.log(lista);
 }
