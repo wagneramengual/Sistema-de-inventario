@@ -12,6 +12,10 @@ app.use('/inventario', inventarioRoutes);
 
 const PORT = process.env.PORT || 3000;
 
+app.get("/", (req, res) => {
+  res.send("Servidor rodando corretamente 🚀");
+});
+
 app.listen(PORT, () => {
   console.log("Backend rodando na porta " + PORT);
 });
