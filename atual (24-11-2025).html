@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Inventário Patrimonial - Defensoria Pública RS</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+ <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body{padding:18px;background:#f8f9fa;font-family:Segoe UI,system-ui,Arial,sans-serif}
+    .card{border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.06)}
+    .scanner-btn{position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;font-size:22px;z-index:1200}
+    .scanner-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1150;align-items:center;justify-content:center}
+    .scanner-content{background:#fff;border-radius:12px;padding:18px;max-width:96%;max-height:92%;text-align:center;position:relative}
+    #reader{width:100%;max-width:640px;height:360px;background:#000;margin:0 auto;display:flex;align-items:center;justify-content:center}
+    #reader video{width:100%;height:100%;object-fit:cover}
+    #camera-status{position:absolute;top:12px;right:12px;background:#198754;color:#fff;padding:6px 12px;border-radius:20px;font-weight:600;display:none;z-index:1300;animation:pulse 1.2s infinite}
+    @keyframes pulse{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+    .feedback-scan{position:fixed;bottom:100px;right:20px;background:#198754;color:#fff;padding:10px 18px;border-radius:24px;display:none;z-index:2000;font-weight:600}
+    .counter-card{border-radius:10px;padding:12px 10px;text-align:center;color:#fff;font-weight:600;cursor:pointer}
+    .counter-card:hover{transform:translateY(-4px);transition:all .12s}
+    .table-container{max-height:420px;overflow:auto;border:1px solid #e6e6e6;border-radius:8px;background:#fff;margin-top:18px}
+    thead th{position:sticky;top:0;background:#0d6efd;color:#fff;z-index:10}
+    #filtros-avancados{display:none;margin-bottom:18px}
+    .progress{height:8px}
+    .search-box{margin-bottom:15px}
+    .export-options{margin-top:10px}
+    .dashboard-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:10px;padding:15px;margin-bottom:15px}
+    .metric-value{font-size:24px;font-weight:bold}
+    .metric-label{font-size:12px;opacity:0.9}
+    .footer-developer{text-align:center;margin-top:30px;padding:15px;color:#6c757d;font-size:0.9em;border-top:1px solid #dee2e6;background:linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%);border-radius:8px;font-style:italic}
+    .footer-developer strong{color:#495057;font-weight:600}
+    .info-header{background:linear-gradient(135deg,#e3f2fd 0%,#bbdefb 100%);border-radius:8px;padding:15px;margin-bottom:15px;border-left:4px solid #2196f3}
+    .info-item{display:flex;align-items:center;margin-bottom:5px}
+    .info-label{font-weight:600;min-width:120px;color:#1565c0}
+    .info-value{flex:1;color:#37474f}
+  </style>
+</head>
+<body>
+  <div class="text-center mb-4">
+    <img src="https://www.defensoria.rs.def.br/themes/modelo-hotsite/images/logos/logo.png" alt="Defensoria Pública RS" style="height:56px;">
+    <h1 class="text-primary fw-bold mt-2">Inventário Patrimonial - Unidade Central</h1>
+    <p class="text-muted">Sistema de Controle e Consolidação de Bens — Defensoria Pública RS</p>
+  </div>
+
+  <!-- Dashboard de Métricas -->
+  <div id="dashboard" class="row g-3 mb-3" style="display:none">
+    <div class="col-md-3">
+      <div class="dashboard-card">
+        <div class="metric-value" id="metric-total">0</div>
+        <div class="metric-label">TOTAL DE BENS</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="dashboard-card">
+        <div class="metric-value" id="metric-localizados">0</div>
+        <div class="metric-label">LOCALIZADOS</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="dashboard-card">
+        <div class="metric-value" id="metric-conclusao">0%</div>
+        <div class="metric-label">CONCLUSÃO</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="dashboard-card">
+        <div class="metric-value" id="metric-centros">0</div>
+        <div class="metric-label">CENTROS DE CUSTO</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de Progresso -->
+  <div class="card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span class="fw-bold">Progresso do Inventário</span>
+      <span id="progress-text">0%</span>
+    </div>
+    <div class="progress">
+      <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <label class="form-label fw-bold">Upload da Planilha (.xlsx)</label>
+    <input type="file" id="upload-excel" class="form-control" accept=".xlsx,.xls">
+    <div class="form-text">Suporta planilhas de Termo de Responsabilidade da Defensoria Pública RS</div>
+    <div id="upload-error" class="text-danger mt-2" style="display:none"></div>
+  </div>
+
+  <div class="row g-3 mb-3 text-center">
+    <div class="col-md-2"><div class="counter-card bg-primary" data-filter=""><div>Total</div><div id="total-bens">0</div></div></div>
+    <div class="col-md-2"><div class="counter-card bg-success" data-filter="localizado"><div>Localizados</div><div id="total-localizados">0</div></div></div>
+    <div class="col-md-2"><div class="counter-card bg-info" data-filter="antigo"><div>Etiqueta Antiga</div><div id="total-antigos">0</div></div></div>
+    <div class="col-md-2"><div class="counter-card bg-secondary" data-filter="nao-localizado"><div>Não Localizado</div><div id="total-nao">0</div></div></div>
+    <div class="col-md-2"><div class="counter-card bg-warning text-dark" data-filter="fora"><div>Fora da Lista</div><div id="total-fora">0</div></div></div>
+    <div class="col-md-2"><div class="counter-card bg-dark"><div>Centros</div><div id="total-centros">0</div></div></div>
+  </div>
+
+  <div class="card p-3 mb-3">
+    <label class="form-label fw-bold">Digite ou escaneie o número</label>
+    <input id="numero-patrimonio" class="form-control text-center" placeholder="Digite ou escaneie aqui...">
+    <div id="status-texto" class="mt-2 text-muted">Aguardando leitura...</div>
+  </div>
+
+  <div class="text-center mb-2">
+    <button id="toggle-filtros" class="btn btn-outline-primary">Mostrar/ocultar filtros avançados</button>
+    <button id="btn-limpar-dados" class="btn btn-outline-danger ms-2">Limpar Dados</button>
+  </div>
+
+  <div id="filtros-avancados" class="card p-3 mb-3">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <label class="form-label">Filtrar por Centro de Custo</label>
+        <select id="filtro-centro" class="form-select"><option value="">Todos</option></select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Filtrar por Setor</label>
+        <select id="filtro-setor" class="form-select"><option value="">Todos</option></select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Filtrar por Status</label>
+        <select id="filtro-status" class="form-select">
+          <option value="">Todos</option>
+          <option value="localizado">Localizado</option>
+          <option value="antigo">Etiqueta Antiga</option>
+          <option value="nao-localizado">Não Localizado</option>
+          <option value="fora">Fora da Lista</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Buscar Texto</label>
+        <input type="text" id="filtro-texto" class="form-control" placeholder="Patrimônio, descrição...">
+      </div>
+    </div>
+  </div>
+
+  <!-- Cabeçalho com informações da unidade -->
+  <div id="info-unidade" class="info-header" style="display:none">
+    <div class="row">
+      <div class="col-md-4">
+        <div class="info-item">
+          <span class="info-label">Centro de Custo:</span>
+          <span class="info-value" id="info-centro-custo">-</span>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="info-item">
+          <span class="info-label">Setor:</span>
+          <span class="info-value" id="info-setor">-</span>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="info-item">
+          <span class="info-label">Localização:</span>
+          <span class="info-value" id="info-localizacao">-</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tabela-container" class="table-container d-none">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Registro Patrimonial</th>
+          <th>Registro Antigo</th>
+          <th>Descrição</th>
+          <th>Status</th>
+          <th>Data/Hora</th>
+        </tr>
+      </thead>
+      <tbody id="tabela-body"></tbody>
+    </table>
+  </div>
+
+  <div class="text-center my-3">
+    <button id="btn-exportar" class="btn btn-primary" disabled>Exportar Excel</button>
+    <div class="export-options">
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="checkbox" id="export-completo" checked>
+        <label class="form-check-label" for="export-completo">Dados completos</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="checkbox" id="export-processados" checked>
+        <label class="form-check-label" for="export-processados">Apenas processados</label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rodapé Developer -->
+  <div class="footer-developer">
+    Developed by <strong>Wagner Amengual</strong>
+  </div>
+
+  <button id="btn-scanner" class="btn btn-success scanner-btn" title="Scanner de Código de Barras">📷</button>
+  <div id="scanner-modal" class="scanner-modal">
+    <div class="scanner-content">
+      <div id="camera-status">Scanner ativo</div>
+      <h5 class="mb-2">Scanner de Código de Barras</h5>
+      <div id="reader"></div>
+      <div class="mt-3">
+        <button id="close-scanner" class="btn btn-danger">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="feedback-scan" class="feedback-scan">Código lido!</div>
+
+  <script>
+    let dadosPlanilha=[],foraDaLista=[],processedSet=new Set();
+    let html5QrCode = null;
+
+    const els={
+      upload:document.getElementById('upload-excel'),
+      input:document.getElementById('numero-patrimonio'),
+      status:document.getElementById('status-texto'),
+      tabelaBody:document.getElementById('tabela-body'),
+      tabelaContainer:document.getElementById('tabela-container'),
+      btnExport:document.getElementById('btn-exportar'),
+      filtroCentro:document.getElementById('filtro-centro'),
+      filtroSetor:document.getElementById('filtro-setor'),
+      filtroStatus:document.getElementById('filtro-status'),
+      filtroTexto:document.getElementById('filtro-texto'),
+      uploadError:document.getElementById('upload-error'),
+      progressBar:document.getElementById('progress-bar'),
+      progressText:document.getElementById('progress-text'),
+      btnLimpar:document.getElementById('btn-limpar-dados'),
+      dashboard:document.getElementById('dashboard'),
+      infoUnidade:document.getElementById('info-unidade'),
+      infoCentroCusto:document.getElementById('info-centro-custo'),
+      infoSetor:document.getElementById('info-setor'),
+      infoLocalizacao:document.getElementById('info-localizacao')
+    };
+
+    // Normalização robusta
+    const normalize=s=>String(s||'').trim().toUpperCase().replace(/\s+/g,' ');
+
+    // Função para normalizar removendo zeros à esquerda
+    const normalizeWithZeroTrim = s => {
+      const normalized = String(s || '').trim().toUpperCase().replace(/\s+/g, ' ');
+      // Remove zeros à esquerda, mas mantém pelo menos um caractere se for só zero
+      return normalized.replace(/^0+/, '') || '0';
+    };
+
+    // Função para extrair centro de custo do campo UNIDADE
+    function extrairCentroCusto(unidade) {
+      if (!unidade) return 'Não informado';
+      const texto = String(unidade);
+      // Remove o código do início (tudo antes do "-") e retorna o nome do centro de custo
+      const match = texto.split(' - ');
+      return match.length > 1 ? normalize(match[1]) : normalize(texto);
+    }
+
+    // Carregar dados salvos
+    function carregarDadosSalvos(){
+      const saved=localStorage.getItem('inventarioDados');
+      if(saved){
+        const dados=JSON.parse(saved);
+        dadosPlanilha=dados.dadosPlanilha||[];
+        foraDaLista=dados.foraDaLista||[];
+        processedSet=new Set(dados.processedSet||[]);
+        atualizarInfoUnidade();
+        atualizarTabela();
+        atualizarContadores();
+        atualizarProgresso();
+        atualizarDashboard();
+        els.tabelaContainer.classList.remove('d-none');
+        els.btnExport.disabled=false;
+        preencherFiltros();
+        els.dashboard.style.display='flex';
+      }
+    }
+
+    // Função para atualizar informações da unidade no cabeçalho
+    function atualizarInfoUnidade() {
+      if (dadosPlanilha.length > 0) {
+        const primeiroItem = dadosPlanilha[0];
+        els.infoCentroCusto.textContent = primeiroItem.centroCusto;
+        els.infoSetor.textContent = primeiroItem.setor;
+        els.infoLocalizacao.textContent = primeiroItem.localizacao;
+        els.infoUnidade.style.display = 'block';
+      } else {
+        els.infoUnidade.style.display = 'none';
+      }
+    }
+
+    // FUNÇÃO MELHORADA: Identificar posições dinamicamente
+    function processarPlanilhaArray(rows) {
+      if(!rows || rows.length===0) throw new Error('Planilha vazia');
+      
+      console.log('=== ANALISANDO ESTRUTURA DE ARRAY ===');
+      console.log('Total de linhas:', rows.length);
+      
+      let centroCusto = 'Não informado';
+      let localizacao = 'Não informado';
+      let dependencia = 'Não informado';
+      
+      // VARIÁVEIS PARA POSIÇÕES DAS COLUNAS
+      let posPatrimonial = -1;
+      let posAntigo = -1;
+      let posDescricao = -1;
+      let linhaInicioDados = -1;
+      
+      const dados = [];
+
+      // PRIMEIRO: Encontrar informações do cabeçalho e identificar colunas
+      for (let i = 0; i < Math.min(20, rows.length); i++) {
+        const row = rows[i];
+        
+        if (Array.isArray(row)) {
+          // Buscar informações de UNIDADE, LOCALIZAÇÃO, DEPENDÊNCIA
+          for (let j = 0; j < row.length; j++) {
+            const valor = String(row[j] || '');
+            
+            if (valor.includes('UNIDADE:')) {
+              centroCusto = extrairCentroCusto(valor);
+              console.log('✅ Encontrou UNIDADE:', centroCusto);
+            }
+            if (valor.includes('LOCALIZAÇÃO:')) {
+              localizacao = normalize(valor.replace('LOCALIZAÇÃO:', '').trim());
+              console.log('✅ Encontrou LOCALIZAÇÃO:', localizacao);
+            }
+            if (valor.includes('DEPENDÊNCIA:')) {
+              dependencia = normalize(valor.replace('DEPENDÊNCIA:', '').trim());
+              console.log('✅ Encontrou DEPENDÊNCIA:', dependencia);
+            }
+            
+            // IDENTIFICAR POSIÇÕES DAS COLUNAS PELO CABEÇALHO
+            if (valor === 'REGISTRO PATRIMONIAL') {
+              posPatrimonial = j;
+              console.log('📋 REGISTRO PATRIMONIAL na posição:', j);
+            }
+            if (valor.includes('REGISTRO PATRIMONIAL ANTERIOR')) {
+              posAntigo = j;
+              console.log('📋 REGISTRO PATRIMONIAL ANTERIOR na posição:', j);
+            }
+            if (valor.includes('DESCRIÇÃO')) {
+              posDescricao = j;
+              console.log('📋 DESCRIÇÃO na posição:', j);
+            }
+          }
+          
+          // Se encontrou o cabeçalho dos dados, marcar a próxima linha como início
+          if (posPatrimonial !== -1) {
+            linhaInicioDados = i + 1;
+            console.log('🚀 Início dos dados na linha:', linhaInicioDados);
+            break;
+          }
+        }
+      }
+
+      console.log('Posições identificadas:', { posPatrimonial, posAntigo, posDescricao });
+      console.log('Informações extraídas:', { centroCusto, localizacao, dependencia });
+
+      // SEGUNDO: Processar dados usando as posições identificadas
+      if (linhaInicioDados !== -1 && posPatrimonial !== -1) {
+        console.log('=== PROCESSANDO DADOS DE PATRIMÔNIO ===');
+        
+        for (let i = linhaInicioDados; i < rows.length; i++) {
+          const row = rows[i];
+          
+          if (Array.isArray(row) && row.length > posPatrimonial) {
+            const patrimonio = String(row[posPatrimonial] || '').trim();
+            
+            // Buscar registro antigo se a posição foi identificada
+            const antigo = posAntigo !== -1 && row.length > posAntigo ? String(row[posAntigo] || '').trim() : '';
+            
+            // Buscar descrição se a posição foi identificada
+            const descricao = posDescricao !== -1 && row.length > posDescricao ? String(row[posDescricao] || '').trim() : '';
+            
+            // Verificar se tem um número de patrimônio válido
+            if (patrimonio && /^\d{6,12}$/.test(patrimonio)) {
+              console.log(`✅ Linha ${i}:`, { 
+                patrimonio, 
+                antigo, 
+                descricao,
+                'posAntigo': posAntigo,
+                'valorAntigo': antigo
+              });
+              
+              dados.push({
+                patrimonio: normalize(patrimonio),
+                antigo: normalize(antigo),
+                descricao: normalize(descricao) || 'Não informado',
+                centroCusto,
+                setor: dependencia,
+                localizacao,
+                status: 'nao-localizado',
+                dataHora: ''
+              });
+            }
+            
+            // Parar se encontrar rodapé
+            if (patrimonio.includes('QUANTIDADE') || patrimonio.includes('TOTAL GERAL')) {
+              break;
+            }
+          }
+        }
+      }
+
+      // SE NÃO ENCONTROU PELO CABEÇALHO, TENTAR MÉTODO ALTERNATIVO
+      if (dados.length === 0) {
+        console.log('=== TENTANDO MÉTODO ALTERNATIVO ===');
+        
+        // Usar posições padrão baseadas na estrutura que conhecemos
+        const posPadraoPatrimonial = 0;
+        const posPadraoAntigo = 1;
+        const posPadraoDescricao = 6;
+        
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          
+          if (Array.isArray(row) && row.length >= 7) {
+            const patrimonio = String(row[posPadraoPatrimonial] || '').trim();
+            const antigo = String(row[posPadraoAntigo] || '').trim();
+            const descricao = String(row[posPadraoDescricao] || '').trim();
+            
+            if (patrimonio && /^\d{6,12}$/.test(patrimonio)) {
+              console.log(`✅ Linha ${i} (método alternativo):`, { patrimonio, antigo, descricao });
+              
+              dados.push({
+                patrimonio: normalize(patrimonio),
+                antigo: normalize(antigo),
+                descricao: normalize(descricao) || 'Não informado',
+                centroCusto,
+                setor: dependencia,
+                localizacao,
+                status: 'nao-localizado',
+                dataHora: ''
+              });
+            }
+          }
+        }
+      }
+
+      if (dados.length === 0) {
+        console.log('❌ NENHUM DADO ENCONTRADO');
+        throw new Error('Não foi possível encontrar dados de patrimônio na planilha.');
+      }
+
+      console.log(`=== PROCESSAMENTO CONCLUÍDO ===`);
+      console.log(`Encontrados ${dados.length} itens:`, dados);
+      return dados;
+    }
+
+    els.upload.addEventListener('change',async e=>{
+      const file=e.target.files[0];
+      if(!file) return;
+      
+      els.uploadError.style.display='none';
+      
+      try{
+        // Confirmação antes de substituir
+        if(dadosPlanilha.length>0){
+          const manter=confirm('Deseja manter o progresso anterior? Clique em "Cancelar" para limpar tudo.');
+          if(!manter){
+            localStorage.clear();
+            dadosPlanilha=[];
+            foraDaLista=[];
+            processedSet=new Set();
+          }
+        }
+
+        const buffer=await file.arrayBuffer();
+        const wb=XLSX.read(buffer,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{defval:'', header:1});
+        
+        // Processar planilha com estrutura de array
+        dadosPlanilha = processarPlanilhaArray(rows);
+        
+        preencherFiltros();
+        atualizarInfoUnidade();
+        atualizarTabela();
+        atualizarContadores();
+        atualizarProgresso();
+        atualizarDashboard();
+        els.tabelaContainer.classList.remove('d-none');
+        els.btnExport.disabled=false;
+        els.dashboard.style.display='flex';
+        
+        // Salvar dados
+        salvarDados();
+        
+        mostrarFeedback(`Planilha carregada: ${dadosPlanilha.length} itens`);
+        
+      }catch(error){
+        els.uploadError.textContent=`Erro: ${error.message}`;
+        els.uploadError.style.display='block';
+        console.error('Erro no upload:',error);
+      }
+    });
+
+    function preencherFiltros(){
+      const centros=[...new Set(dadosPlanilha.map(d=>d.centroCusto).filter(Boolean))];
+      const setores=[...new Set(dadosPlanilha.map(d=>d.setor).filter(Boolean))];
+      
+      els.filtroCentro.innerHTML='<option value="">Todos</option>'+centros.map(c=>`<option>${c}</option>`).join('');
+      els.filtroSetor.innerHTML='<option value="">Todos</option>'+setores.map(s=>`<option>${s}</option>`).join('');
+    }
+
+    function processarNumero(num){
+      const numero=normalizeWithZeroTrim(num);
+      if(!numero) return;
+      
+      if(processedSet.has(numero)){
+        mostrarFeedback('Item já processado');
+        return;
+      }
+      
+      const dataHora=new Date().toLocaleString('pt-BR');
+      
+      // Buscar na lista considerando a normalização sem zeros à esquerda
+      const encontrado=dadosPlanilha.find(d=> 
+        normalizeWithZeroTrim(d.patrimonio)===numero|| 
+        normalizeWithZeroTrim(d.antigo)===numero
+      );
+      
+      if(encontrado){
+        // NOVA LÓGICA: Se JÁ ESTÁ LOCALIZADO, mantém o status (não muda para "antigo")
+        if(encontrado.status==='localizado'){
+          // Mantém como localizado, apenas atualiza data/hora
+          encontrado.dataHora=dataHora;
+          mostrarFeedback('Item já localizado anteriormente');
+        }
+        // Se NÃO está localizado, define o status correto
+        else if(normalizeWithZeroTrim(encontrado.patrimonio)===numero){
+          encontrado.status='localizado';
+          encontrado.dataHora=dataHora;
+          mostrarFeedback('Patrimônio localizado!');
+        }else{
+          encontrado.status='antigo';
+          encontrado.dataHora=dataHora;
+          mostrarFeedback('Etiqueta antiga localizada!');
+        }
+      }else{
+        foraDaLista.push({numero,dataHora,status:'fora'});
+        mostrarFeedback('Item fora da lista original');
+      }
+      
+      processedSet.add(numero);
+      atualizarTabela();
+      atualizarContadores();
+      atualizarProgresso();
+      atualizarDashboard();
+      salvarDados();
+    }
+
+    function atualizarTabela(){
+      els.tabelaBody.innerHTML='';
+      const filtroCentro=els.filtroCentro.value;
+      const filtroSetor=els.filtroSetor.value;
+      const filtroStatus=els.filtroStatus.value;
+      const filtroTexto=normalize(els.filtroTexto.value);
+      
+      const todos=[...dadosPlanilha,...foraDaLista.map(f=>({
+        patrimonio:'',
+        antigo:f.numero,
+        descricao:'Item não listado',
+        centroCusto:'Fora da lista',
+        setor:'-',
+        localizacao:'-',
+        status:'fora',
+        dataHora:f.dataHora
+      }))];
+      
+      const filtrados=todos.filter(i=>{
+        const centroMatch=!filtroCentro||i.centroCusto===filtroCentro;
+        const setorMatch=!filtroSetor||i.setor===filtroSetor;
+        const statusMatch=!filtroStatus||i.status===filtroStatus;
+        const textoMatch=!filtroTexto|| 
+          normalizeWithZeroTrim(i.patrimonio).includes(filtroTexto)|| 
+          normalizeWithZeroTrim(i.antigo).includes(filtroTexto)|| 
+          i.descricao.includes(filtroTexto)||
+          i.centroCusto.includes(filtroTexto)||
+          i.setor.includes(filtroTexto)||
+          i.localizacao.includes(filtroTexto);
+        
+        return centroMatch && setorMatch && statusMatch && textoMatch;
+      });
+      
+      filtrados.forEach(i=>{
+        const statusLabel={
+          'localizado':'Localizado',
+          'antigo':'Etiqueta Antiga', 
+          'fora':'Fora da Lista',
+          'nao-localizado':'Não Localizado'
+        }[i.status];
+        
+        const tr=document.createElement('tr');
+        tr.innerHTML=`
+          <td>${i.patrimonio||'-'}</td>
+          <td>${i.antigo||'-'}</td>
+          <td>${i.descricao}</td>
+          <td>${statusLabel}</td>
+          <td>${i.dataHora||''}</td>
+        `;
+        
+        if(i.status==='localizado')tr.classList.add('table-success');
+        else if(i.status==='antigo')tr.classList.add('table-info');
+        else if(i.status==='fora')tr.classList.add('table-warning');
+        else tr.classList.add('table-secondary');
+        
+        els.tabelaBody.appendChild(tr);
+      });
+    }
+
+    function atualizarContadores(){
+      const total=dadosPlanilha.length;
+      const loc=dadosPlanilha.filter(d=>d.status==='localizado').length;
+      const ant=dadosPlanilha.filter(d=>d.status==='antigo').length;
+      const fora=foraDaLista.length;
+      
+      document.getElementById('total-bens').innerText=total;
+      document.getElementById('total-localizados').innerText=loc;
+      document.getElementById('total-antigos').innerText=ant;
+      document.getElementById('total-fora').innerText=fora;
+      document.getElementById('total-nao').innerText=total-(loc+ant);
+      document.getElementById('total-centros').innerText=[...new Set(dadosPlanilha.map(d=>d.centroCusto))].length;
+    }
+
+    function atualizarDashboard(){
+      const total=dadosPlanilha.length;
+      const localizados=dadosPlanilha.filter(d=>d.status==='localizado').length;
+      const antigos=dadosPlanilha.filter(d=>d.status==='antigo').length;
+      const processados=localizados+antigos;
+      const percentual=total>0?Math.round((processados/total)*100):0;
+      const centros=[...new Set(dadosPlanilha.map(d=>d.centroCusto))].length;
+      
+      document.getElementById('metric-total').innerText=total;
+      document.getElementById('metric-localizados').innerText=processados;
+      document.getElementById('metric-conclusao').innerText=percentual+'%';
+      document.getElementById('metric-centros').innerText=centros;
+    }
+
+    function atualizarProgresso(){
+      const total=dadosPlanilha.length;
+      const processados=dadosPlanilha.filter(d=>d.status==='localizado'||d.status==='antigo').length;
+      const percentual=total>0?Math.round((processados/total)*100):0;
+      
+      els.progressBar.style.width=`${percentual}%`;
+      els.progressText.textContent=`${percentual}%`;
+      
+      // Cor baseada no progresso
+      if(percentual<30) els.progressBar.className='progress-bar progress-bar-striped progress-bar-animated bg-danger';
+      else if(percentual<70) els.progressBar.className='progress-bar progress-bar-striped progress-bar-animated bg-warning';
+      else els.progressBar.className='progress-bar progress-bar-striped progress-bar-animated bg-success';
+    }
+
+    function salvarDados(){
+      const dadosSalvar={
+        dadosPlanilha,
+        foraDaLista,
+        processedSet:Array.from(processedSet),
+        timestamp:new Date().toISOString()
+      };
+      localStorage.setItem('inventarioDados',JSON.stringify(dadosSalvar));
+    }
+
+    function exportarExcel(){
+      const exportCompleto=document.getElementById('export-completo').checked;
+      const exportProcessados=document.getElementById('export-processados').checked;
+      
+      let dadosExportar=[...dadosPlanilha];
+      
+      if(exportCompleto){
+        dadosExportar=[...dadosExportar,...foraDaLista.map(f=>({
+          patrimonio:'',
+          antigo:f.numero,
+          descricao:'Item não listado',
+          centroCusto:'Fora da lista',
+          setor:'-',
+          localizacao:'-',
+          status:'fora',
+          dataHora:f.dataHora
+        }))];
+      }
+      
+      if(!exportProcessados){
+        dadosExportar=dadosExportar.filter(item=>item.dataHora);
+      }
+      
+      const ws=XLSX.utils.json_to_sheet(dadosExportar.map(item=>({
+        'Registro Patrimonial':item.patrimonio,
+        'Registro Antigo':item.antigo,
+        'Descrição':item.descricao,
+        'Centro de Custo':item.centroCusto,
+        'Setor':item.setor,
+        'Localização':item.localizacao,
+        'Status':{
+          'localizado':'Localizado',
+          'antigo':'Etiqueta Antiga',
+          'fora':'Fora da Lista',
+          'nao-localizado':'Não Localizado'
+        }[item.status],
+        'Data/Hora Leitura':item.dataHora
+      })));
+      
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,'Inventário Processado');
+      XLSX.writeFile(wb,`inventario_processado_${new Date().toLocaleDateString('pt-BR')}.xlsx`);
+    }
+
+    function mostrarFeedback(msg){
+      const f=document.getElementById('feedback-scan');
+      f.innerText=msg;
+      f.style.display='block';
+      setTimeout(()=>f.style.display='none',1500);
+    }
+
+    // FUNÇÕES DO SCANNER CORRIGIDAS
+    async function startScanner() {
+      try {
+        document.getElementById('camera-status').style.display = 'block';
+        
+        // Configurações do scanner
+        const config = {
+          fps: 10,
+          qrbox: { width: 250, height: 150 },
+          supportedScanTypes: [
+            Html5QrcodeScanType.SCAN_TYPE_CAMERA
+          ]
+        };
+
+        // Criar instância do scanner
+        html5QrCode = new Html5Qrcode("reader");
+        
+        // Obter câmeras disponíveis
+        const cameras = await Html5Qrcode.getCameras();
+        if (cameras.length === 0) {
+          throw new Error('Nenhuma câmera encontrada');
+        }
+
+        // Tentar usar a câmera traseira primeiro, senão usar a primeira disponível
+        const backCamera = cameras.find(camera => 
+          camera.label.toLowerCase().includes('back') || 
+          camera.label.toLowerCase().includes('rear') ||
+          camera.label.toLowerCase().includes('traseira')
+        );
+        
+        const cameraId = backCamera ? backCamera.id : cameras[0].id;
+        
+        // Iniciar o scanner
+        await html5QrCode.start(
+          cameraId,
+          config,
+          onScanSuccess,
+          onScanFailure
+        );
+        
+        console.log('Scanner iniciado com sucesso');
+        
+      } catch (error) {
+        console.error('Erro ao iniciar scanner:', error);
+        alert('Erro ao acessar a câmera: ' + error.message);
+        stopScanner();
+      }
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+      console.log(`Código escaneado: ${decodedText}`);
+      processarNumero(decodedText);
+      
+      // Pequena pausa para evitar múltiplas leituras rápidas
+      setTimeout(() => {
+        if (html5QrCode && html5QrCode.isScanning) {
+          // Continuar escaneando
+        }
+      }, 1000);
+    }
+
+    function onScanFailure(error) {
+      // Erros são normais durante o escaneamento, não mostrar ao usuário
+      console.log('Escaneamento em andamento...', error);
+    }
+
+    async function stopScanner() {
+      try {
+        if (html5QrCode && html5QrCode.isScanning) {
+          await html5QrCode.stop();
+          await html5QrCode.clear();
+          html5QrCode = null;
+        }
+        document.getElementById('camera-status').style.display = 'none';
+        console.log('Scanner parado');
+      } catch (error) {
+        console.warn('Erro ao parar scanner:', error);
+      }
+    }
+
+    // Função para limpar todos os filtros
+    function limparFiltros() {
+      els.filtroCentro.value = '';
+      els.filtroSetor.value = '';
+      els.filtroStatus.value = '';
+      els.filtroTexto.value = '';
+      atualizarTabela();
+    }
+
+    // Event Listeners
+    document.getElementById('btn-scanner').onclick = () => {
+      document.getElementById('scanner-modal').style.display = 'flex';
+      startScanner();
+    };
+    
+    document.getElementById('close-scanner').onclick = () => {
+      stopScanner();
+      document.getElementById('scanner-modal').style.display = 'none';
+    };
+    
+    document.getElementById('scanner-modal').onclick = e => {
+      if (e.target.id === 'scanner-modal') {
+        stopScanner();
+        e.target.style.display = 'none';
+      }
+    };
+    
+    document.getElementById('toggle-filtros').onclick=()=>{const f=document.getElementById('filtros-avancados');f.style.display=f.style.display==='none'?'block':'none';};
+    
+    // Adicionar event listeners para os botões de filtro
+    document.querySelectorAll('.counter-card[data-filter]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const filter = this.getAttribute('data-filter');
+        if (filter === '') {
+          // Botão "Total" - limpar todos os filtros
+          limparFiltros();
+        } else {
+          // Outros botões - aplicar filtro de status
+          els.filtroStatus.value = filter;
+          atualizarTabela();
+        }
+      });
+    });
+    
+    els.btnLimpar.onclick=()=>{
+      if(confirm('Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.')){
+        localStorage.clear();
+        dadosPlanilha=[];
+        foraDaLista=[];
+        processedSet=new Set();
+        els.tabelaBody.innerHTML='';
+        atualizarContadores();
+        atualizarProgresso();
+        atualizarDashboard();
+        els.tabelaContainer.classList.add('d-none');
+        els.btnExport.disabled=true;
+        els.dashboard.style.display='none';
+        els.infoUnidade.style.display='none';
+        limparFiltros();
+        mostrarFeedback('Dados limpos com sucesso');
+      }
+    };
+    
+    els.filtroCentro.onchange=els.filtroSetor.onchange=els.filtroStatus.onchange=els.filtroTexto.oninput=atualizarTabela;
+    els.input.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.value.trim()){processarNumero(e.target.value.trim());e.target.value='';}});
+    els.btnExport.onclick=exportarExcel;
+
+    // Inicialização
+    carregarDadosSalvos();
+  </script>
+</body>
+</html>
