@@ -257,6 +257,13 @@
       return normalized.replace(/^0+/, '') || '0';
     };
 
+    // Classifica um número "fora da lista" como patrimônio novo ou antigo
+    // Padrão adotado: 6 dígitos ou mais = novo | 5 dígitos ou menos = antigo
+    const classificarNumeroFora = numero => {
+      const digitos = String(numero || '').replace(/\D/g, '');
+      return digitos.length >= 6 ? 'novo' : 'antigo';
+    };
+
 
     function garantirCamposAuxiliares(){
       let seq=0;
@@ -269,6 +276,7 @@
         if(!item.uid)item.uid=`fora-${Date.now()}-${seq++}`;
         if(typeof item.observacao!=='string')item.observacao='';
         if(typeof item.imprimirEtiqueta!=='boolean')item.imprimirEtiqueta=false;
+        if(item.tipoNumero!=='novo'&&item.tipoNumero!=='antigo')item.tipoNumero=classificarNumeroFora(item.numero);
       });
     }
 
@@ -560,7 +568,8 @@
           mostrarFeedback('Etiqueta antiga localizada!','info');
         }
       }else{
-        const fora={uid:`fora-${Date.now()}-${numero}`,numero,dataHora,status:'fora',observacao:'',imprimirEtiqueta:false};
+        const tipoNumero=classificarNumeroFora(numero);
+        const fora={uid:`fora-${Date.now()}-${numero}`,numero,tipoNumero,dataHora,status:'fora',observacao:'',imprimirEtiqueta:false};
         foraDaLista.push(fora);
         mostrarFeedback('Item fora da lista original','warning');
       }
@@ -607,10 +616,15 @@
       };
 
       for(const i of dadosPlanilha)renderItem(i,false);
-      for(const f of foraDaLista)renderItem({
-        ...f,
-        patrimonio:'',antigo:f.numero,descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-'
-      },true);
+      for(const f of foraDaLista){
+        const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
+        renderItem({
+          ...f,
+          patrimonio:tipoNumero==='novo'?f.numero:'',
+          antigo:tipoNumero==='antigo'?f.numero:'',
+          descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-'
+        },true);
+      }
 
       els.tabelaBody.replaceChildren(fragment);
       atualizarIndicacaoFiltros();
@@ -692,10 +706,15 @@
       let dadosExportar=[...dadosPlanilha];
 
       if(exportCompleto){
-        dadosExportar.push(...foraDaLista.map(f=>({
-          patrimonio:'',antigo:f.numero,descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-',status:'fora',dataHora:f.dataHora,
-          observacao:f.observacao||'',imprimirEtiqueta:Boolean(f.imprimirEtiqueta),abaOrigem:'Fora da lista'
-        })));
+        dadosExportar.push(...foraDaLista.map(f=>{
+          const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
+          return {
+            patrimonio:tipoNumero==='novo'?f.numero:'',
+            antigo:tipoNumero==='antigo'?f.numero:'',
+            descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-',status:'fora',dataHora:f.dataHora,
+            observacao:f.observacao||'',imprimirEtiqueta:Boolean(f.imprimirEtiqueta),abaOrigem:'Fora da lista'
+          };
+        }));
       }
 
       if(exportProcessados)dadosExportar=dadosExportar.filter(item=>item.dataHora);
