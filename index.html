@@ -17,9 +17,16 @@
     #reader video{width:100%;height:100%;object-fit:cover}
     #camera-status{position:absolute;top:12px;right:12px;background:#198754;color:#fff;padding:6px 12px;border-radius:20px;font-weight:600;display:none;z-index:1300;animation:pulse 1.2s infinite}
     @keyframes pulse{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
-    .feedback-scan{position:fixed;bottom:100px;right:20px;background:#198754;color:#fff;padding:10px 18px;border-radius:24px;display:none;z-index:2000;font-weight:600}
+    .feedback-scan{position:fixed;bottom:100px;right:20px;background:#198754;color:#fff;padding:12px 20px;border-radius:24px;display:none;z-index:2000;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,.18);max-width:min(420px,calc(100vw - 40px))}
+    .feedback-scan.feedback-warning{background:#fd7e14}
+    .feedback-scan.feedback-info{background:#0d6efd}
     .counter-card{border-radius:10px;padding:12px 10px;text-align:center;color:#fff;font-weight:600;cursor:pointer}
     .counter-card:hover{transform:translateY(-4px);transition:all .12s}
+    .counter-card.filter-selected{outline:4px solid rgba(13,110,253,.28);box-shadow:0 0 0 3px #fff,0 0 0 6px #0d6efd;transform:translateY(-3px)}
+    .filter-control-active{border:2px solid #0d6efd!important;background:#eef5ff!important;box-shadow:0 0 0 .2rem rgba(13,110,253,.15)!important}
+    #toggle-filtros.filters-active{background:#0d6efd;color:#fff;border-color:#0d6efd;font-weight:700}
+    .obs-input{min-width:210px}
+    .label-check{width:1.25rem;height:1.25rem;cursor:pointer}
     .table-container{max-height:420px;overflow:auto;border:1px solid #e6e6e6;border-radius:8px;background:#fff;margin-top:18px}
     thead th{position:sticky;top:0;background:#0d6efd;color:#fff;z-index:10}
     #filtros-avancados{display:none;margin-bottom:18px}
@@ -169,6 +176,8 @@
           <th>Registro Antigo</th>
           <th>Descrição</th>
           <th>Status</th>
+          <th>Observação</th>
+          <th class="text-center">Imprimir etiqueta</th>
           <th>Data/Hora</th>
         </tr>
       </thead>
@@ -211,6 +220,9 @@
 
   <script>
     let dadosPlanilha=[],foraDaLista=[],processedSet=new Set();
+    let indicePatrimonio=new Map();
+    let estatisticasCache={total:0,localizados:0,antigos:0,processados:0,naoLocalizados:0,fora:0,centros:0,percentual:0};
+    let feedbackTimer=null;
     let html5QrCode = null;
 
     const els={
@@ -245,6 +257,66 @@
       return normalized.replace(/^0+/, '') || '0';
     };
 
+
+    function garantirCamposAuxiliares(){
+      let seq=0;
+      dadosPlanilha.forEach(item=>{
+        if(!item.uid)item.uid=`bem-${Date.now()}-${seq++}`;
+        if(typeof item.observacao!=='string')item.observacao='';
+        if(typeof item.imprimirEtiqueta!=='boolean')item.imprimirEtiqueta=false;
+      });
+      foraDaLista.forEach(item=>{
+        if(!item.uid)item.uid=`fora-${Date.now()}-${seq++}`;
+        if(typeof item.observacao!=='string')item.observacao='';
+        if(typeof item.imprimirEtiqueta!=='boolean')item.imprimirEtiqueta=false;
+      });
+    }
+
+    function reconstruirIndice(){
+      indicePatrimonio.clear();
+      dadosPlanilha.forEach(item=>{
+        const p=normalizeWithZeroTrim(item.patrimonio);
+        const a=normalizeWithZeroTrim(item.antigo);
+        if(p&&p!=='0')indicePatrimonio.set(p,{item,tipo:'patrimonio'});
+        if(a&&a!=='0'&&!indicePatrimonio.has(a))indicePatrimonio.set(a,{item,tipo:'antigo'});
+      });
+    }
+
+    function calcularEstatisticas(){
+      let localizados=0,antigos=0;
+      const centros=new Set();
+      for(const d of dadosPlanilha){
+        if(d.status==='localizado')localizados++;
+        else if(d.status==='antigo')antigos++;
+        if(d.centroCusto)centros.add(d.centroCusto);
+      }
+      const total=dadosPlanilha.length;
+      const processados=localizados+antigos;
+      estatisticasCache={
+        total,
+        localizados,
+        antigos,
+        processados,
+        naoLocalizados:Math.max(0,total-processados),
+        fora:foraDaLista.length,
+        centros:centros.size,
+        percentual:total>0?Math.round((processados/total)*100):0
+      };
+      return estatisticasCache;
+    }
+
+    function atualizarIndicacaoFiltros(){
+      const ativos=[els.filtroCentro,els.filtroSetor,els.filtroStatus,els.filtroTexto];
+      ativos.forEach(el=>el.classList.toggle('filter-control-active',Boolean(el.value&&String(el.value).trim())));
+      const status=els.filtroStatus.value;
+      document.querySelectorAll('.counter-card[data-filter]').forEach(card=>{
+        const valor=card.getAttribute('data-filter');
+        card.classList.toggle('filter-selected',valor===status || (valor===''&&!status&&!els.filtroCentro.value&&!els.filtroSetor.value&&!els.filtroTexto.value));
+      });
+      const algum=ativos.some(el=>Boolean(el.value&&String(el.value).trim()));
+      document.getElementById('toggle-filtros').classList.toggle('filters-active',algum);
+    }
+
     // Função para extrair centro de custo do campo UNIDADE
     function extrairCentroCusto(unidade) {
       if (!unidade) return 'Não informado';
@@ -262,11 +334,12 @@
         dadosPlanilha=dados.dadosPlanilha||[];
         foraDaLista=dados.foraDaLista||[];
         processedSet=new Set(dados.processedSet||[]);
+        garantirCamposAuxiliares();
+        reconstruirIndice();
         atualizarInfoUnidade();
         atualizarTabela();
-        atualizarContadores();
-        atualizarProgresso();
-        atualizarDashboard();
+        reconstruirIndice();
+        atualizarResumoVisual();
         els.tabelaContainer.classList.remove('d-none');
         els.btnExport.disabled=false;
         preencherFiltros();
@@ -290,174 +363,104 @@
     // FUNÇÃO MELHORADA: Identificar posições dinamicamente
     function processarPlanilhaArray(rows) {
       if(!rows || rows.length===0) throw new Error('Planilha vazia');
-      
-      console.log('=== ANALISANDO ESTRUTURA DE ARRAY ===');
-      console.log('Total de linhas:', rows.length);
-      
-      let centroCusto = 'Não informado';
-      let localizacao = 'Não informado';
-      let dependencia = 'Não informado';
-      
-      // VARIÁVEIS PARA POSIÇÕES DAS COLUNAS
-      let posPatrimonial = -1;
-      let posAntigo = -1;
-      let posDescricao = -1;
-      let linhaInicioDados = -1;
-      
-      const dados = [];
 
-      // PRIMEIRO: Encontrar informações do cabeçalho e identificar colunas
-      for (let i = 0; i < Math.min(20, rows.length); i++) {
-        const row = rows[i];
-        
-        if (Array.isArray(row)) {
-          // Buscar informações de UNIDADE, LOCALIZAÇÃO, DEPENDÊNCIA
-          for (let j = 0; j < row.length; j++) {
-            const valor = String(row[j] || '');
-            
-            if (valor.includes('UNIDADE:')) {
-              centroCusto = extrairCentroCusto(valor);
-              console.log('✅ Encontrou UNIDADE:', centroCusto);
-            }
-            if (valor.includes('LOCALIZAÇÃO:')) {
-              localizacao = normalize(valor.replace('LOCALIZAÇÃO:', '').trim());
-              console.log('✅ Encontrou LOCALIZAÇÃO:', localizacao);
-            }
-            if (valor.includes('DEPENDÊNCIA:')) {
-              dependencia = normalize(valor.replace('DEPENDÊNCIA:', '').trim());
-              console.log('✅ Encontrou DEPENDÊNCIA:', dependencia);
-            }
-            
-            // IDENTIFICAR POSIÇÕES DAS COLUNAS PELO CABEÇALHO
-            if (valor === 'REGISTRO PATRIMONIAL') {
-              posPatrimonial = j;
-              console.log('📋 REGISTRO PATRIMONIAL na posição:', j);
-            }
-            if (valor.includes('REGISTRO PATRIMONIAL ANTERIOR')) {
-              posAntigo = j;
-              console.log('📋 REGISTRO PATRIMONIAL ANTERIOR na posição:', j);
-            }
-            if (valor.includes('DESCRIÇÃO')) {
-              posDescricao = j;
-              console.log('📋 DESCRIÇÃO na posição:', j);
-            }
-          }
-          
-          // Se encontrou o cabeçalho dos dados, marcar a próxima linha como início
-          if (posPatrimonial !== -1) {
-            linhaInicioDados = i + 1;
-            console.log('🚀 Início dos dados na linha:', linhaInicioDados);
-            break;
+      let centroCusto='Não informado';
+      let localizacao='Não informado';
+      let dependencia='Não informado';
+      let posPatrimonial=-1;
+      let posAntigo=-1;
+      let posDescricao=-1;
+      let linhaInicioDados=-1;
+      const dados=[];
+
+      for(let i=0;i<Math.min(20,rows.length);i++){
+        const row=rows[i];
+        if(!Array.isArray(row))continue;
+
+        for(let j=0;j<row.length;j++){
+          const valor=String(row[j]||'');
+          if(valor.includes('UNIDADE:')) centroCusto=extrairCentroCusto(valor);
+          if(valor.includes('LOCALIZAÇÃO:')) localizacao=normalize(valor.replace('LOCALIZAÇÃO:','').trim());
+          if(valor.includes('DEPENDÊNCIA:')) dependencia=normalize(valor.replace('DEPENDÊNCIA:','').trim());
+          if(valor==='REGISTRO PATRIMONIAL') posPatrimonial=j;
+          if(valor.includes('REGISTRO PATRIMONIAL ANTERIOR')) posAntigo=j;
+          if(valor.includes('DESCRIÇÃO')) posDescricao=j;
+        }
+
+        if(posPatrimonial!==-1){
+          linhaInicioDados=i+1;
+          break;
+        }
+      }
+
+      if(linhaInicioDados!==-1 && posPatrimonial!==-1){
+        for(let i=linhaInicioDados;i<rows.length;i++){
+          const row=rows[i];
+          if(!Array.isArray(row) || row.length<=posPatrimonial)continue;
+          const patrimonio=String(row[posPatrimonial]||'').trim();
+          const antigo=posAntigo!==-1 && row.length>posAntigo?String(row[posAntigo]||'').trim():'';
+          const descricao=posDescricao!==-1 && row.length>posDescricao?String(row[posDescricao]||'').trim():'';
+
+          if(patrimonio.includes('QUANTIDADE') || patrimonio.includes('TOTAL GERAL'))break;
+          if(patrimonio && /^\d{6,12}$/.test(patrimonio)){
+            dados.push({
+              patrimonio:normalize(patrimonio),
+              antigo:normalize(antigo),
+              descricao:normalize(descricao)||'Não informado',
+              centroCusto,
+              setor:dependencia,
+              localizacao,
+              status:'nao-localizado',
+              dataHora:'',
+              observacao:'',
+              imprimirEtiqueta:false
+            });
           }
         }
       }
 
-      console.log('Posições identificadas:', { posPatrimonial, posAntigo, posDescricao });
-      console.log('Informações extraídas:', { centroCusto, localizacao, dependencia });
-
-      // SEGUNDO: Processar dados usando as posições identificadas
-      if (linhaInicioDados !== -1 && posPatrimonial !== -1) {
-        console.log('=== PROCESSANDO DADOS DE PATRIMÔNIO ===');
-        
-        for (let i = linhaInicioDados; i < rows.length; i++) {
-          const row = rows[i];
-          
-          if (Array.isArray(row) && row.length > posPatrimonial) {
-            const patrimonio = String(row[posPatrimonial] || '').trim();
-            
-            // Buscar registro antigo se a posição foi identificada
-            const antigo = posAntigo !== -1 && row.length > posAntigo ? String(row[posAntigo] || '').trim() : '';
-            
-            // Buscar descrição se a posição foi identificada
-            const descricao = posDescricao !== -1 && row.length > posDescricao ? String(row[posDescricao] || '').trim() : '';
-            
-            // Verificar se tem um número de patrimônio válido
-            if (patrimonio && /^\d{6,12}$/.test(patrimonio)) {
-              console.log(`✅ Linha ${i}:`, { 
-                patrimonio, 
-                antigo, 
-                descricao,
-                'posAntigo': posAntigo,
-                'valorAntigo': antigo
-              });
-              
-              dados.push({
-                patrimonio: normalize(patrimonio),
-                antigo: normalize(antigo),
-                descricao: normalize(descricao) || 'Não informado',
-                centroCusto,
-                setor: dependencia,
-                localizacao,
-                status: 'nao-localizado',
-                dataHora: ''
-              });
-            }
-            
-            // Parar se encontrar rodapé
-            if (patrimonio.includes('QUANTIDADE') || patrimonio.includes('TOTAL GERAL')) {
-              break;
-            }
+      if(dados.length===0){
+        const posPadraoPatrimonial=0;
+        const posPadraoAntigo=1;
+        const posPadraoDescricao=6;
+        for(let i=0;i<rows.length;i++){
+          const row=rows[i];
+          if(!Array.isArray(row) || row.length<7)continue;
+          const patrimonio=String(row[posPadraoPatrimonial]||'').trim();
+          const antigo=String(row[posPadraoAntigo]||'').trim();
+          const descricao=String(row[posPadraoDescricao]||'').trim();
+          if(patrimonio && /^\d{6,12}$/.test(patrimonio)){
+            dados.push({
+              patrimonio:normalize(patrimonio),
+              antigo:normalize(antigo),
+              descricao:normalize(descricao)||'Não informado',
+              centroCusto,
+              setor:dependencia,
+              localizacao,
+              status:'nao-localizado',
+              dataHora:'',
+              observacao:'',
+              imprimirEtiqueta:false
+            });
           }
         }
       }
 
-      // SE NÃO ENCONTROU PELO CABEÇALHO, TENTAR MÉTODO ALTERNATIVO
-      if (dados.length === 0) {
-        console.log('=== TENTANDO MÉTODO ALTERNATIVO ===');
-        
-        // Usar posições padrão baseadas na estrutura que conhecemos
-        const posPadraoPatrimonial = 0;
-        const posPadraoAntigo = 1;
-        const posPadraoDescricao = 6;
-        
-        for (let i = 0; i < rows.length; i++) {
-          const row = rows[i];
-          
-          if (Array.isArray(row) && row.length >= 7) {
-            const patrimonio = String(row[posPadraoPatrimonial] || '').trim();
-            const antigo = String(row[posPadraoAntigo] || '').trim();
-            const descricao = String(row[posPadraoDescricao] || '').trim();
-            
-            if (patrimonio && /^\d{6,12}$/.test(patrimonio)) {
-              console.log(`✅ Linha ${i} (método alternativo):`, { patrimonio, antigo, descricao });
-              
-              dados.push({
-                patrimonio: normalize(patrimonio),
-                antigo: normalize(antigo),
-                descricao: normalize(descricao) || 'Não informado',
-                centroCusto,
-                setor: dependencia,
-                localizacao,
-                status: 'nao-localizado',
-                dataHora: ''
-              });
-            }
-          }
-        }
-      }
-
-      if (dados.length === 0) {
-        console.log('❌ NENHUM DADO ENCONTRADO');
-        throw new Error('Não foi possível encontrar dados de patrimônio na planilha.');
-      }
-
-      console.log(`=== PROCESSAMENTO CONCLUÍDO ===`);
-      console.log(`Encontrados ${dados.length} itens:`, dados);
+      if(dados.length===0) throw new Error('Não foi possível encontrar dados de patrimônio na planilha.');
       return dados;
     }
 
     els.upload.addEventListener('change',async e=>{
       const file=e.target.files[0];
       if(!file) return;
-      
+
       els.uploadError.style.display='none';
-      
+
       try{
-        // Confirmação antes de substituir
         if(dadosPlanilha.length>0){
           const manter=confirm('Deseja manter o progresso anterior? Clique em "Cancelar" para limpar tudo.');
           if(!manter){
-            localStorage.clear();
+            localStorage.removeItem('inventarioDados');
             dadosPlanilha=[];
             foraDaLista=[];
             processedSet=new Set();
@@ -466,33 +469,61 @@
 
         const buffer=await file.arrayBuffer();
         const wb=XLSX.read(buffer,{type:'array'});
-        const ws=wb.Sheets[wb.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(ws,{defval:'', header:1});
-        
-        // Processar planilha com estrutura de array
-        dadosPlanilha = processarPlanilhaArray(rows);
-        
+        const dadosTodasAbas=[];
+        const errosAbas=[];
+
+        for(const nomeAba of wb.SheetNames){
+          try{
+            const ws=wb.Sheets[nomeAba];
+            const rows=XLSX.utils.sheet_to_json(ws,{defval:'',header:1});
+            const dadosAba=processarPlanilhaArray(rows);
+            dadosAba.forEach((item,idx)=>{
+              item.abaOrigem=nomeAba;
+              item.uid=`${nomeAba}-${item.patrimonio||item.antigo||idx}`;
+            });
+            dadosTodasAbas.push(...dadosAba);
+          }catch(errAba){
+            console.warn(`Aba ignorada (${nomeAba}):`,errAba.message);
+            errosAbas.push(nomeAba);
+          }
+        }
+
+        if(dadosTodasAbas.length===0)throw new Error('Nenhuma aba com dados patrimoniais válidos foi encontrada.');
+
+        dadosPlanilha=manterProgressoExistente(dadosTodasAbas,dadosPlanilha);
+        garantirCamposAuxiliares();
+        reconstruirIndice();
         preencherFiltros();
         atualizarInfoUnidade();
         atualizarTabela();
-        atualizarContadores();
-        atualizarProgresso();
-        atualizarDashboard();
+        atualizarResumoVisual();
         els.tabelaContainer.classList.remove('d-none');
         els.btnExport.disabled=false;
         els.dashboard.style.display='flex';
-        
-        // Salvar dados
         salvarDados();
-        
-        mostrarFeedback(`Planilha carregada: ${dadosPlanilha.length} itens`);
-        
+
+        const msgErros=errosAbas.length?` (${errosAbas.length} aba(s) sem lista válida foram ignoradas)`:'';
+        mostrarFeedback(`Planilha carregada: ${dadosPlanilha.length} itens em ${wb.SheetNames.length-errosAbas.length} aba(s)${msgErros}`,'info');
       }catch(error){
         els.uploadError.textContent=`Erro: ${error.message}`;
         els.uploadError.style.display='block';
         console.error('Erro no upload:',error);
       }
     });
+
+    function manterProgressoExistente(novos,anteriores){
+      if(!anteriores||anteriores.length===0)return novos;
+      const anteriorPorChave=new Map();
+      anteriores.forEach(item=>{
+        const chave=`${normalizeWithZeroTrim(item.patrimonio)}|${normalizeWithZeroTrim(item.antigo)}|${item.centroCusto||''}`;
+        anteriorPorChave.set(chave,item);
+      });
+      return novos.map(item=>{
+        const chave=`${normalizeWithZeroTrim(item.patrimonio)}|${normalizeWithZeroTrim(item.antigo)}|${item.centroCusto||''}`;
+        const antigo=anteriorPorChave.get(chave);
+        return antigo?{...item,status:antigo.status,dataHora:antigo.dataHora,observacao:antigo.observacao||'',imprimirEtiqueta:Boolean(antigo.imprimirEtiqueta)}:item;
+      });
+    }
 
     function preencherFiltros(){
       const centros=[...new Set(dadosPlanilha.map(d=>d.centroCusto).filter(Boolean))];
@@ -504,150 +535,145 @@
 
     function processarNumero(num){
       const numero=normalizeWithZeroTrim(num);
-      if(!numero) return;
-      
+      if(!numero)return;
+
       if(processedSet.has(numero)){
-        mostrarFeedback('Item já processado');
+        mostrarFeedback('Item já processado','info');
         return;
       }
-      
+
       const dataHora=new Date().toLocaleString('pt-BR');
-      
-      // Buscar na lista considerando a normalização sem zeros à esquerda
-      const encontrado=dadosPlanilha.find(d=> 
-        normalizeWithZeroTrim(d.patrimonio)===numero|| 
-        normalizeWithZeroTrim(d.antigo)===numero
-      );
-      
-      if(encontrado){
-        // NOVA LÓGICA: Se JÁ ESTÁ LOCALIZADO, mantém o status (não muda para "antigo")
-        if(encontrado.status==='localizado'){
-          // Mantém como localizado, apenas atualiza data/hora
+      const achado=indicePatrimonio.get(numero);
+
+      if(achado){
+        const encontrado=achado.item;
+        if(encontrado.status==='localizado'||encontrado.status==='antigo'){
           encontrado.dataHora=dataHora;
-          mostrarFeedback('Item já localizado anteriormente');
-        }
-        // Se NÃO está localizado, define o status correto
-        else if(normalizeWithZeroTrim(encontrado.patrimonio)===numero){
+          mostrarFeedback('Item já localizado anteriormente','info');
+        }else if(achado.tipo==='patrimonio'){
           encontrado.status='localizado';
           encontrado.dataHora=dataHora;
           mostrarFeedback('Patrimônio localizado!');
         }else{
           encontrado.status='antigo';
           encontrado.dataHora=dataHora;
-          mostrarFeedback('Etiqueta antiga localizada!');
+          mostrarFeedback('Etiqueta antiga localizada!','info');
         }
       }else{
-        foraDaLista.push({numero,dataHora,status:'fora'});
-        mostrarFeedback('Item fora da lista original');
+        const fora={uid:`fora-${Date.now()}-${numero}`,numero,dataHora,status:'fora',observacao:'',imprimirEtiqueta:false};
+        foraDaLista.push(fora);
+        mostrarFeedback('Item fora da lista original','warning');
       }
-      
+
       processedSet.add(numero);
       atualizarTabela();
-      atualizarContadores();
-      atualizarProgresso();
-      atualizarDashboard();
+      atualizarResumoVisual();
       salvarDados();
     }
 
     function atualizarTabela(){
-      els.tabelaBody.innerHTML='';
       const filtroCentro=els.filtroCentro.value;
       const filtroSetor=els.filtroSetor.value;
       const filtroStatus=els.filtroStatus.value;
       const filtroTexto=normalize(els.filtroTexto.value);
-      
-      const todos=[...dadosPlanilha,...foraDaLista.map(f=>({
-        patrimonio:'',
-        antigo:f.numero,
-        descricao:'Item não listado',
-        centroCusto:'Fora da lista',
-        setor:'-',
-        localizacao:'-',
-        status:'fora',
-        dataHora:f.dataHora
-      }))];
-      
-      const filtrados=todos.filter(i=>{
+      const fragment=document.createDocumentFragment();
+
+      const renderItem=(i,fora=false)=>{
         const centroMatch=!filtroCentro||i.centroCusto===filtroCentro;
         const setorMatch=!filtroSetor||i.setor===filtroSetor;
         const statusMatch=!filtroStatus||i.status===filtroStatus;
-        const textoMatch=!filtroTexto|| 
-          normalizeWithZeroTrim(i.patrimonio).includes(filtroTexto)|| 
-          normalizeWithZeroTrim(i.antigo).includes(filtroTexto)|| 
-          i.descricao.includes(filtroTexto)||
-          i.centroCusto.includes(filtroTexto)||
-          i.setor.includes(filtroTexto)||
-          i.localizacao.includes(filtroTexto);
-        
-        return centroMatch && setorMatch && statusMatch && textoMatch;
-      });
-      
-      filtrados.forEach(i=>{
-        const statusLabel={
-          'localizado':'Localizado',
-          'antigo':'Etiqueta Antiga', 
-          'fora':'Fora da Lista',
-          'nao-localizado':'Não Localizado'
-        }[i.status];
-        
+        const textoBase=`${i.patrimonio||''} ${i.antigo||''} ${i.descricao||''} ${i.centroCusto||''} ${i.setor||''} ${i.localizacao||''} ${i.observacao||''}`;
+        const textoMatch=!filtroTexto||normalize(textoBase).includes(filtroTexto);
+        if(!(centroMatch&&setorMatch&&statusMatch&&textoMatch))return;
+
+        const statusLabel={localizado:'Localizado',antigo:'Etiqueta Antiga',fora:'Fora da Lista','nao-localizado':'Não Localizado'}[i.status]||i.status;
         const tr=document.createElement('tr');
+        tr.dataset.uid=i.uid;
+        tr.dataset.tipo=fora?'fora':'bem';
         tr.innerHTML=`
           <td>${i.patrimonio||'-'}</td>
           <td>${i.antigo||'-'}</td>
-          <td>${i.descricao}</td>
+          <td>${i.descricao||'-'}</td>
           <td>${statusLabel}</td>
+          <td>${fora?`<input class="form-control form-control-sm obs-input" data-action="observacao" value="${escapeHtml(i.observacao||'')}" placeholder="Identifique o item/local para movimentação">`:(i.observacao?escapeHtml(i.observacao):'-')}</td>
+          <td class="text-center"><input type="checkbox" class="form-check-input label-check" data-action="etiqueta" ${i.imprimirEtiqueta?'checked':''} aria-label="Marcar para imprimir etiqueta"></td>
           <td>${i.dataHora||''}</td>
         `;
-        
         if(i.status==='localizado')tr.classList.add('table-success');
         else if(i.status==='antigo')tr.classList.add('table-info');
         else if(i.status==='fora')tr.classList.add('table-warning');
         else tr.classList.add('table-secondary');
-        
-        els.tabelaBody.appendChild(tr);
-      });
+        fragment.appendChild(tr);
+      };
+
+      for(const i of dadosPlanilha)renderItem(i,false);
+      for(const f of foraDaLista)renderItem({
+        ...f,
+        patrimonio:'',antigo:f.numero,descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-'
+      },true);
+
+      els.tabelaBody.replaceChildren(fragment);
+      atualizarIndicacaoFiltros();
     }
 
-    function atualizarContadores(){
-      const total=dadosPlanilha.length;
-      const loc=dadosPlanilha.filter(d=>d.status==='localizado').length;
-      const ant=dadosPlanilha.filter(d=>d.status==='antigo').length;
-      const fora=foraDaLista.length;
-      
-      document.getElementById('total-bens').innerText=total;
-      document.getElementById('total-localizados').innerText=loc;
-      document.getElementById('total-antigos').innerText=ant;
-      document.getElementById('total-fora').innerText=fora;
-      document.getElementById('total-nao').innerText=total-(loc+ant);
-      document.getElementById('total-centros').innerText=[...new Set(dadosPlanilha.map(d=>d.centroCusto))].length;
+    function escapeHtml(valor){
+      return String(valor??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
     }
 
-    function atualizarDashboard(){
-      const total=dadosPlanilha.length;
-      const localizados=dadosPlanilha.filter(d=>d.status==='localizado').length;
-      const antigos=dadosPlanilha.filter(d=>d.status==='antigo').length;
-      const processados=localizados+antigos;
-      const percentual=total>0?Math.round((processados/total)*100):0;
-      const centros=[...new Set(dadosPlanilha.map(d=>d.centroCusto))].length;
-      
-      document.getElementById('metric-total').innerText=total;
-      document.getElementById('metric-localizados').innerText=processados;
-      document.getElementById('metric-conclusao').innerText=percentual+'%';
-      document.getElementById('metric-centros').innerText=centros;
+    els.tabelaBody.addEventListener('change',e=>{
+      const alvo=e.target;
+      if(!alvo.dataset.action)return;
+      const tr=alvo.closest('tr[data-uid]');
+      if(!tr)return;
+      const colecao=tr.dataset.tipo==='fora'?foraDaLista:dadosPlanilha;
+      const item=colecao.find(x=>x.uid===tr.dataset.uid);
+      if(!item)return;
+      if(alvo.dataset.action==='etiqueta')item.imprimirEtiqueta=alvo.checked;
+      salvarDados();
+    });
+
+    els.tabelaBody.addEventListener('input',e=>{
+      if(e.target.dataset.action!=='observacao')return;
+      const tr=e.target.closest('tr[data-uid]');
+      if(!tr)return;
+      const item=foraDaLista.find(x=>x.uid===tr.dataset.uid);
+      if(item)item.observacao=e.target.value;
+    });
+
+    els.tabelaBody.addEventListener('focusout',e=>{
+      if(e.target.dataset.action==='observacao')salvarDados();
+    });
+
+    function atualizarContadores(stats=estatisticasCache){
+      document.getElementById('total-bens').innerText=stats.total;
+      document.getElementById('total-localizados').innerText=stats.localizados;
+      document.getElementById('total-antigos').innerText=stats.antigos;
+      document.getElementById('total-fora').innerText=stats.fora;
+      document.getElementById('total-nao').innerText=stats.naoLocalizados;
+      document.getElementById('total-centros').innerText=stats.centros;
     }
 
-    function atualizarProgresso(){
-      const total=dadosPlanilha.length;
-      const processados=dadosPlanilha.filter(d=>d.status==='localizado'||d.status==='antigo').length;
-      const percentual=total>0?Math.round((processados/total)*100):0;
-      
+    function atualizarDashboard(stats=estatisticasCache){
+      document.getElementById('metric-total').innerText=stats.total;
+      document.getElementById('metric-localizados').innerText=stats.processados;
+      document.getElementById('metric-conclusao').innerText=stats.percentual+'%';
+      document.getElementById('metric-centros').innerText=stats.centros;
+    }
+
+    function atualizarProgresso(stats=estatisticasCache){
+      const percentual=stats.percentual;
       els.progressBar.style.width=`${percentual}%`;
       els.progressText.textContent=`${percentual}%`;
-      
-      // Cor baseada no progresso
-      if(percentual<30) els.progressBar.className='progress-bar progress-bar-striped progress-bar-animated bg-danger';
-      else if(percentual<70) els.progressBar.className='progress-bar progress-bar-striped progress-bar-animated bg-warning';
+      if(percentual<30)els.progressBar.className='progress-bar progress-bar-striped progress-bar-animated bg-danger';
+      else if(percentual<70)els.progressBar.className='progress-bar progress-bar-striped progress-bar-animated bg-warning';
       else els.progressBar.className='progress-bar progress-bar-striped progress-bar-animated bg-success';
+    }
+
+    function atualizarResumoVisual(){
+      const stats=calcularEstatisticas();
+      atualizarContadores(stats);
+      atualizarDashboard(stats);
+      atualizarProgresso(stats);
     }
 
     function salvarDados(){
@@ -663,52 +689,53 @@
     function exportarExcel(){
       const exportCompleto=document.getElementById('export-completo').checked;
       const exportProcessados=document.getElementById('export-processados').checked;
-      
       let dadosExportar=[...dadosPlanilha];
-      
+
       if(exportCompleto){
-        dadosExportar=[...dadosExportar,...foraDaLista.map(f=>({
-          patrimonio:'',
-          antigo:f.numero,
-          descricao:'Item não listado',
-          centroCusto:'Fora da lista',
-          setor:'-',
-          localizacao:'-',
-          status:'fora',
-          dataHora:f.dataHora
-        }))];
+        dadosExportar.push(...foraDaLista.map(f=>({
+          patrimonio:'',antigo:f.numero,descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-',status:'fora',dataHora:f.dataHora,
+          observacao:f.observacao||'',imprimirEtiqueta:Boolean(f.imprimirEtiqueta),abaOrigem:'Fora da lista'
+        })));
       }
-      
-      if(!exportProcessados){
-        dadosExportar=dadosExportar.filter(item=>item.dataHora);
-      }
-      
-      const ws=XLSX.utils.json_to_sheet(dadosExportar.map(item=>({
+
+      if(exportProcessados)dadosExportar=dadosExportar.filter(item=>item.dataHora);
+
+      const linhas=dadosExportar.map(item=>({
         'Registro Patrimonial':item.patrimonio,
         'Registro Antigo':item.antigo,
         'Descrição':item.descricao,
         'Centro de Custo':item.centroCusto,
         'Setor':item.setor,
         'Localização':item.localizacao,
-        'Status':{
-          'localizado':'Localizado',
-          'antigo':'Etiqueta Antiga',
-          'fora':'Fora da Lista',
-          'nao-localizado':'Não Localizado'
-        }[item.status],
+        'Aba de Origem':item.abaOrigem||'',
+        'Status':{localizado:'Localizado',antigo:'Etiqueta Antiga',fora:'Fora da Lista','nao-localizado':'Não Localizado'}[item.status]||item.status,
+        'Observação':item.observacao||'',
+        'Imprimir etiqueta':item.imprimirEtiqueta?'SIM':'NÃO',
         'Data/Hora Leitura':item.dataHora
-      })));
-      
+      }));
+
+      const ws=XLSX.utils.json_to_sheet(linhas);
+      ws['!cols']=[
+        {wch:20},{wch:20},{wch:48},{wch:34},{wch:28},{wch:28},{wch:24},{wch:20},{wch:45},{wch:18},{wch:22}
+      ];
+      ws['!autofilter']={ref:ws['!ref']};
+      ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft',state:'frozen'};
+
       const wb=XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb,ws,'Inventário Processado');
-      XLSX.writeFile(wb,`inventario_processado_${new Date().toLocaleDateString('pt-BR')}.xlsx`);
+      const dataArquivo=new Date().toISOString().slice(0,10);
+      XLSX.writeFile(wb,`inventario_processado_${dataArquivo}.xlsx`);
     }
 
-    function mostrarFeedback(msg){
+    function mostrarFeedback(msg,tipo='success'){
       const f=document.getElementById('feedback-scan');
+      if(feedbackTimer)clearTimeout(feedbackTimer);
       f.innerText=msg;
+      f.className='feedback-scan';
+      if(tipo==='warning')f.classList.add('feedback-warning');
+      else if(tipo==='info')f.classList.add('feedback-info');
       f.style.display='block';
-      setTimeout(()=>f.style.display='none',1500);
+      feedbackTimer=setTimeout(()=>{f.style.display='none';feedbackTimer=null;},4000);
     }
 
     // FUNÇÕES DO SCANNER CORRIGIDAS
@@ -772,9 +799,8 @@
       }, 1000);
     }
 
-    function onScanFailure(error) {
-      // Erros são normais durante o escaneamento, não mostrar ao usuário
-      console.log('Escaneamento em andamento...', error);
+    function onScanFailure() {
+      // Falhas de decodificação durante a busca são esperadas e ignoradas.
     }
 
     async function stopScanner() {
@@ -798,6 +824,7 @@
       els.filtroStatus.value = '';
       els.filtroTexto.value = '';
       atualizarTabela();
+      atualizarIndicacaoFiltros();
     }
 
     // Event Listeners
@@ -831,6 +858,7 @@
           // Outros botões - aplicar filtro de status
           els.filtroStatus.value = filter;
           atualizarTabela();
+          atualizarIndicacaoFiltros();
         }
       });
     });
@@ -842,9 +870,8 @@
         foraDaLista=[];
         processedSet=new Set();
         els.tabelaBody.innerHTML='';
-        atualizarContadores();
-        atualizarProgresso();
-        atualizarDashboard();
+        reconstruirIndice();
+        atualizarResumoVisual();
         els.tabelaContainer.classList.add('d-none');
         els.btnExport.disabled=true;
         els.dashboard.style.display='none';
@@ -854,12 +881,17 @@
       }
     };
     
-    els.filtroCentro.onchange=els.filtroSetor.onchange=els.filtroStatus.onchange=els.filtroTexto.oninput=atualizarTabela;
+    const aoAlterarFiltro=()=>{atualizarTabela();atualizarIndicacaoFiltros();};
+    els.filtroCentro.onchange=aoAlterarFiltro;
+    els.filtroSetor.onchange=aoAlterarFiltro;
+    els.filtroStatus.onchange=aoAlterarFiltro;
+    els.filtroTexto.oninput=aoAlterarFiltro;
     els.input.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.value.trim()){processarNumero(e.target.value.trim());e.target.value='';}});
     els.btnExport.onclick=exportarExcel;
 
     // Inicialização
     carregarDadosSalvos();
+    atualizarIndicacaoFiltros();
   </script>
 </body>
 </html>
