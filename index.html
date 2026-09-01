@@ -95,6 +95,7 @@
     <input type="file" id="upload-excel" class="form-control" accept=".xlsx,.xls">
     <div class="form-text">Suporta planilhas de Termo de Responsabilidade da Defensoria Pública RS</div>
     <div id="upload-error" class="text-danger mt-2" style="display:none"></div>
+    <div id="upload-warning" class="alert alert-warning mt-2 mb-0" style="display:none"></div>
   </div>
 
   <div class="row g-3 mb-3 text-center">
@@ -114,6 +115,7 @@
 
   <div class="text-center mb-2">
     <button id="toggle-filtros" class="btn btn-outline-primary">Mostrar/ocultar filtros avançados</button>
+    <button id="btn-desfazer" class="btn btn-outline-secondary ms-2" disabled>↩️ Desfazer última leitura</button>
     <button id="btn-limpar-dados" class="btn btn-outline-danger ms-2">Limpar Dados</button>
   </div>
 
@@ -224,6 +226,8 @@
     let estatisticasCache={total:0,localizados:0,antigos:0,processados:0,naoLocalizados:0,fora:0,centros:0,percentual:0};
     let feedbackTimer=null;
     let html5QrCode = null;
+    let ultimaAcao=null;
+    let audioCtx=null;
 
     const els={
       upload:document.getElementById('upload-excel'),
@@ -240,6 +244,8 @@
       progressBar:document.getElementById('progress-bar'),
       progressText:document.getElementById('progress-text'),
       btnLimpar:document.getElementById('btn-limpar-dados'),
+      btnDesfazer:document.getElementById('btn-desfazer'),
+      uploadWarning:document.getElementById('upload-warning'),
       dashboard:document.getElementById('dashboard'),
       infoUnidade:document.getElementById('info-unidade'),
       infoCentroCusto:document.getElementById('info-centro-custo'),
@@ -332,6 +338,32 @@
       // Remove o código do início (tudo antes do "-") e retorna o nome do centro de custo
       const match = texto.split(' - ');
       return match.length > 1 ? normalize(match[1]) : normalize(texto);
+    }
+
+    // Detecta números que aparecem em mais de uma aba, indicando de onde vem cada conflito
+    function detectarConflitosAbas(dados){
+      const porPatrimonio=new Map();
+      const porAntigo=new Map();
+      dados.forEach(item=>{
+        const p=normalizeWithZeroTrim(item.patrimonio);
+        if(p&&p!=='0'){
+          if(!porPatrimonio.has(p))porPatrimonio.set(p,new Set());
+          porPatrimonio.get(p).add(item.abaOrigem||'Aba desconhecida');
+        }
+        const a=normalizeWithZeroTrim(item.antigo);
+        if(a&&a!=='0'){
+          if(!porAntigo.has(a))porAntigo.set(a,new Set());
+          porAntigo.get(a).add(item.abaOrigem||'Aba desconhecida');
+        }
+      });
+      const conflitos=[];
+      porPatrimonio.forEach((abas,numero)=>{
+        if(abas.size>1)conflitos.push(`Patrimônio ${numero} aparece em: ${[...abas].join(', ')}`);
+      });
+      porAntigo.forEach((abas,numero)=>{
+        if(abas.size>1)conflitos.push(`Registro antigo ${numero} aparece em: ${[...abas].join(', ')}`);
+      });
+      return conflitos;
     }
 
     // Carregar dados salvos
@@ -463,6 +495,9 @@
       if(!file) return;
 
       els.uploadError.style.display='none';
+      els.uploadWarning.style.display='none';
+      ultimaAcao=null;
+      els.btnDesfazer.disabled=true;
 
       try{
         if(dadosPlanilha.length>0){
@@ -498,6 +533,14 @@
 
         if(dadosTodasAbas.length===0)throw new Error('Nenhuma aba com dados patrimoniais válidos foi encontrada.');
 
+        const conflitosAbas=detectarConflitosAbas(dadosTodasAbas);
+        if(conflitosAbas.length){
+          els.uploadWarning.innerHTML='⚠️ Números duplicados entre abas (o registro mais recente sobrepõe o anterior):<br>'+conflitosAbas.map(c=>escapeHtml(c)).join('<br>');
+          els.uploadWarning.style.display='block';
+        }else{
+          els.uploadWarning.style.display='none';
+        }
+
         dadosPlanilha=manterProgressoExistente(dadosTodasAbas,dadosPlanilha);
         garantirCamposAuxiliares();
         reconstruirIndice();
@@ -511,7 +554,7 @@
         salvarDados();
 
         const msgErros=errosAbas.length?` (${errosAbas.length} aba(s) sem lista válida foram ignoradas)`:'';
-        mostrarFeedback(`Planilha carregada: ${dadosPlanilha.length} itens em ${wb.SheetNames.length-errosAbas.length} aba(s)${msgErros}`,'info');
+        mostrarFeedback(`Planilha carregada: ${dadosPlanilha.length} itens em ${wb.SheetNames.length-errosAbas.length} aba(s)${msgErros}`,'info',false);
       }catch(error){
         els.uploadError.textContent=`Erro: ${error.message}`;
         els.uploadError.style.display='block';
@@ -546,7 +589,7 @@
       if(!numero)return;
 
       if(processedSet.has(numero)){
-        mostrarFeedback('Item já processado','info');
+        mostrarFeedback('Item já processado','info','ja-processado');
         return;
       }
 
@@ -555,30 +598,63 @@
 
       if(achado){
         const encontrado=achado.item;
+        const statusAnterior=encontrado.status;
+        const dataHoraAnterior=encontrado.dataHora;
         if(encontrado.status==='localizado'||encontrado.status==='antigo'){
           encontrado.dataHora=dataHora;
-          mostrarFeedback('Item já localizado anteriormente','info');
+          mostrarFeedback('Item já localizado anteriormente','info','ja-processado');
         }else if(achado.tipo==='patrimonio'){
           encontrado.status='localizado';
           encontrado.dataHora=dataHora;
-          mostrarFeedback('Patrimônio localizado!');
+          mostrarFeedback('Patrimônio localizado!','success','novo');
         }else{
           encontrado.status='antigo';
           encontrado.dataHora=dataHora;
-          mostrarFeedback('Etiqueta antiga localizada!','info');
+          mostrarFeedback('Etiqueta antiga localizada!','info','novo');
         }
+        ultimaAcao={tipo:'planilha',uid:encontrado.uid,numero,statusAnterior,dataHoraAnterior};
       }else{
         const tipoNumero=classificarNumeroFora(numero);
         const fora={uid:`fora-${Date.now()}-${numero}`,numero,tipoNumero,dataHora,status:'fora',observacao:'',imprimirEtiqueta:false};
         foraDaLista.push(fora);
-        mostrarFeedback('Item fora da lista original','warning');
+        mostrarFeedback('Item fora da lista original','warning','fora');
+        ultimaAcao={tipo:'fora',uid:fora.uid,numero};
       }
 
       processedSet.add(numero);
       atualizarTabela();
       atualizarResumoVisual();
       salvarDados();
+      els.btnDesfazer.disabled=false;
     }
+
+    function desfazerUltimaLeitura(){
+      if(!ultimaAcao){
+        mostrarFeedback('Não há leitura para desfazer','info',false);
+        return;
+      }
+
+      if(ultimaAcao.tipo==='fora'){
+        foraDaLista=foraDaLista.filter(f=>f.uid!==ultimaAcao.uid);
+      }else if(ultimaAcao.tipo==='planilha'){
+        const item=dadosPlanilha.find(d=>d.uid===ultimaAcao.uid);
+        if(item){
+          item.status=ultimaAcao.statusAnterior;
+          item.dataHora=ultimaAcao.dataHoraAnterior;
+        }
+      }
+
+      processedSet.delete(ultimaAcao.numero);
+      ultimaAcao=null;
+      els.btnDesfazer.disabled=true;
+
+      atualizarTabela();
+      atualizarResumoVisual();
+      salvarDados();
+      mostrarFeedback('Última leitura desfeita','info',false);
+    }
+
+    els.btnDesfazer.addEventListener('click',desfazerUltimaLeitura);
 
     function atualizarTabela(){
       const filtroCentro=els.filtroCentro.value;
@@ -746,7 +822,53 @@
       XLSX.writeFile(wb,`inventario_processado_${dataArquivo}.xlsx`);
     }
 
-    function mostrarFeedback(msg,tipo='success'){
+    // Áudio e vibração de feedback
+    function getAudioCtx(){
+      if(!audioCtx){
+        try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }
+        catch(e){ audioCtx=null; }
+      }
+      return audioCtx;
+    }
+
+    function tocarBeep(frequencias,duracaoMs=120){
+      const ctx=getAudioCtx();
+      if(!ctx)return;
+      if(ctx.state==='suspended')ctx.resume();
+      let tempo=ctx.currentTime;
+      frequencias.forEach(freq=>{
+        const osc=ctx.createOscillator();
+        const gain=ctx.createGain();
+        osc.type='sine';
+        osc.frequency.value=freq;
+        gain.gain.setValueAtTime(0.0001,tempo);
+        gain.gain.exponentialRampToValueAtTime(0.25,tempo+0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001,tempo+duracaoMs/1000);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(tempo);
+        osc.stop(tempo+duracaoMs/1000+0.02);
+        tempo+=duracaoMs/1000+0.06;
+      });
+    }
+
+    // categoria: 'novo' | 'ja-processado' | 'fora'
+    function tocarFeedbackSonoro(categoria){
+      if(categoria==='novo')tocarBeep([880],130);
+      else if(categoria==='fora')tocarBeep([440,330],150);
+      else if(categoria==='ja-processado')tocarBeep([600],90);
+    }
+
+    function vibrarFeedback(categoria){
+      if(!navigator.vibrate)return;
+      if(categoria==='novo')navigator.vibrate(70);
+      else if(categoria==='fora')navigator.vibrate([90,60,90]);
+      else if(categoria==='ja-processado')navigator.vibrate(35);
+    }
+
+    // som: categoria explícita ('novo'|'ja-processado'|'fora'), false para silenciar,
+    // ou omitido para usar o próprio 'tipo' visual como categoria
+    function mostrarFeedback(msg,tipo='success',som){
       const f=document.getElementById('feedback-scan');
       if(feedbackTimer)clearTimeout(feedbackTimer);
       f.innerText=msg;
@@ -755,6 +877,12 @@
       else if(tipo==='info')f.classList.add('feedback-info');
       f.style.display='block';
       feedbackTimer=setTimeout(()=>{f.style.display='none';feedbackTimer=null;},4000);
+
+      if(som!==false){
+        const categoria=som||(tipo==='success'?'novo':tipo==='warning'?'fora':'ja-processado');
+        tocarFeedbackSonoro(categoria);
+        vibrarFeedback(categoria);
+      }
     }
 
     // FUNÇÕES DO SCANNER CORRIGIDAS
@@ -888,6 +1016,8 @@
         dadosPlanilha=[];
         foraDaLista=[];
         processedSet=new Set();
+        ultimaAcao=null;
+        els.btnDesfazer.disabled=true;
         els.tabelaBody.innerHTML='';
         reconstruirIndice();
         atualizarResumoVisual();
@@ -896,7 +1026,7 @@
         els.dashboard.style.display='none';
         els.infoUnidade.style.display='none';
         limparFiltros();
-        mostrarFeedback('Dados limpos com sucesso');
+        mostrarFeedback('Dados limpos com sucesso','success',false);
       }
     };
     
