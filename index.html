@@ -42,9 +42,6 @@
     .progress{height:8px}
     .search-box{margin-bottom:15px}
     .export-options{margin-top:10px}
-    .dashboard-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:10px;padding:15px;margin-bottom:15px}
-    .metric-value{font-size:24px;font-weight:bold}
-    .metric-label{font-size:12px;opacity:0.9}
     .footer-developer{text-align:center;margin-top:30px;padding:15px;color:#6c757d;font-size:0.9em;border-top:1px solid #dee2e6;background:linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%);border-radius:8px;font-style:italic}
     .footer-developer strong{color:#495057;font-weight:600}
     .info-header{background:linear-gradient(135deg,#e3f2fd 0%,#bbdefb 100%);border-radius:8px;padding:15px;margin-bottom:15px;border-left:4px solid #2196f3}
@@ -58,34 +55,6 @@
     <img src="https://www.defensoria.rs.def.br/themes/modelo-hotsite/images/logos/logo.png" alt="Defensoria Pública RS" style="height:56px;">
     <h1 class="text-primary fw-bold mt-2">Inventário Patrimonial - Unidade Central</h1>
     <p class="text-muted">Sistema de Controle e Consolidação de Bens — Defensoria Pública RS</p>
-  </div>
-
-  <!-- Dashboard de Métricas -->
-  <div id="dashboard" class="row g-3 mb-3" style="display:none">
-    <div class="col-md-3">
-      <div class="dashboard-card">
-        <div class="metric-value" id="metric-total">0</div>
-        <div class="metric-label">TOTAL DE BENS</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="dashboard-card">
-        <div class="metric-value" id="metric-localizados">0</div>
-        <div class="metric-label">LOCALIZADOS</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="dashboard-card">
-        <div class="metric-value" id="metric-conclusao">0%</div>
-        <div class="metric-label">CONCLUSÃO</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="dashboard-card">
-        <div class="metric-value" id="metric-centros">0</div>
-        <div class="metric-label">CENTROS DE CUSTO</div>
-      </div>
-    </div>
   </div>
 
   <!-- Barra de Progresso -->
@@ -232,6 +201,10 @@
       <div id="camera-status">Scanner ativo</div>
       <h5 class="mb-2">Scanner de Código de Barras</h5>
       <div id="reader"></div>
+      <div id="zoom-control" class="mt-2 px-2" style="display:none">
+        <label for="zoom-slider" class="form-label small mb-0 text-muted">🔍 Zoom da câmera</label>
+        <input type="range" id="zoom-slider" class="form-range">
+      </div>
       <div class="mt-3">
         <button id="close-scanner" class="btn btn-danger">Fechar</button>
       </div>
@@ -289,7 +262,6 @@
       btnLimpar:document.getElementById('btn-limpar-dados'),
       btnDesfazer:document.getElementById('btn-desfazer'),
       uploadWarning:document.getElementById('upload-warning'),
-      dashboard:document.getElementById('dashboard'),
       infoUnidade:document.getElementById('info-unidade'),
       infoCentroCusto:document.getElementById('info-centro-custo'),
       infoSetor:document.getElementById('info-setor'),
@@ -364,11 +336,13 @@
         if(!item.uid)item.uid=`bem-${Date.now()}-${seq++}`;
         if(typeof item.observacao!=='string')item.observacao='';
         if(typeof item.imprimirEtiqueta!=='boolean')item.imprimirEtiqueta=false;
+        if(typeof item.conferente!=='string')item.conferente='';
       });
       foraDaLista.forEach(item=>{
         if(!item.uid)item.uid=`fora-${Date.now()}-${seq++}`;
         if(typeof item.observacao!=='string')item.observacao='';
         if(typeof item.imprimirEtiqueta!=='boolean')item.imprimirEtiqueta=false;
+        if(typeof item.conferente!=='string')item.conferente='';
         if(item.tipoNumero!=='novo'&&item.tipoNumero!=='antigo')item.tipoNumero=classificarNumeroFora(item.numero);
       });
     }
@@ -488,7 +462,6 @@
         els.btnPdf.disabled=false;
         els.btnImprimirLista.disabled=false;
         preencherFiltros();
-        els.dashboard.style.display='flex';
       }
     }
 
@@ -683,7 +656,6 @@
         els.btnExport.disabled=false;
         els.btnPdf.disabled=false;
         els.btnImprimirLista.disabled=false;
-        els.dashboard.style.display='flex';
         salvarDados();
 
         const msgErros=errosAbas.length?` (${errosAbas.length} aba(s) sem lista válida foram ignoradas)`:'';
@@ -748,25 +720,30 @@
         const encontrado=achado.item;
         const statusAnterior=encontrado.status;
         const dataHoraAnterior=encontrado.dataHora;
+        const conferenteAnterior=encontrado.conferente;
+        const nomeConferente=conferenteAtual.trim()||'Não informado';
         if(encontrado.status==='localizado'||encontrado.status==='antigo'){
           encontrado.dataHora=dataHora;
+          encontrado.conferente=nomeConferente;
           mostrarFeedback('Item já localizado anteriormente','info','ja-processado');
           registrarAuditoria({numero,tipo:'ja-processado',detalhe:`Relido - já estava "${statusAnterior}"`});
         }else if(achado.tipo==='patrimonio'){
           encontrado.status='localizado';
           encontrado.dataHora=dataHora;
+          encontrado.conferente=nomeConferente;
           mostrarFeedback('Patrimônio localizado!','success','novo');
           registrarAuditoria({numero,tipo:'localizado'});
         }else{
           encontrado.status='antigo';
           encontrado.dataHora=dataHora;
+          encontrado.conferente=nomeConferente;
           mostrarFeedback('Etiqueta antiga localizada!','info','novo');
           registrarAuditoria({numero,tipo:'antigo'});
         }
-        ultimaAcao={tipo:'planilha',uid:encontrado.uid,numero,statusAnterior,dataHoraAnterior};
+        ultimaAcao={tipo:'planilha',uid:encontrado.uid,numero,statusAnterior,dataHoraAnterior,conferenteAnterior};
       }else{
         const tipoNumero=classificarNumeroFora(numero);
-        const fora={uid:`fora-${Date.now()}-${numero}`,numero,tipoNumero,dataHora,status:'fora',observacao:'',imprimirEtiqueta:false};
+        const fora={uid:`fora-${Date.now()}-${numero}`,numero,tipoNumero,dataHora,status:'fora',observacao:'',imprimirEtiqueta:false,conferente:conferenteAtual.trim()||'Não informado'};
         foraDaLista.push(fora);
         mostrarFeedback('Item fora da lista original','warning','fora');
         registrarAuditoria({numero,tipo:'fora'});
@@ -1031,13 +1008,6 @@
       document.getElementById('total-centros').innerText=stats.centros;
     }
 
-    function atualizarDashboard(stats=estatisticasCache){
-      document.getElementById('metric-total').innerText=stats.total;
-      document.getElementById('metric-localizados').innerText=stats.processados;
-      document.getElementById('metric-conclusao').innerText=stats.percentual+'%';
-      document.getElementById('metric-centros').innerText=stats.centros;
-    }
-
     function atualizarProgresso(stats=estatisticasCache){
       const percentual=stats.percentual;
       els.progressBar.style.width=`${percentual}%`;
@@ -1050,7 +1020,6 @@
     function atualizarResumoVisual(){
       const stats=calcularEstatisticas();
       atualizarContadores(stats);
-      atualizarDashboard(stats);
       atualizarProgresso(stats);
     }
 
@@ -1094,7 +1063,8 @@
           dependencia:'-',
           itens:foraDaLista.map(f=>({
             patrimonio:f.numero||'',antigo:'',dataAquisicao:'',descricao:'',numeroSerie:'',situacaoBem:'',
-            status:'fora',ultimoInventario:'',valorUnitario:'',observacao:f.observacao||''
+            status:'fora',ultimoInventario:'',valorUnitario:'',observacao:f.observacao||'',
+            dataHora:f.dataHora||'',conferente:f.conferente||''
           }))
         });
       }
@@ -1126,10 +1096,16 @@
       for(const grupo of grupos.values()){
         if(!primeiroGrupo)doc.addPage('a4','landscape');
         primeiroGrupo=false;
-        const linhas=grupo.itens.map(item=>[
-          item.patrimonio||'',item.antigo||'',item.dataAquisicao||'',item.descricao||'',item.numeroSerie||'',
-          item.situacaoBem||'',statusLabel[item.status]||item.status||'',item.ultimoInventario||'',item.valorUnitario||'',item.observacao||''
-        ]);
+        const linhas=grupo.itens.map(item=>{
+          const statusTexto=statusLabel[item.status]||item.status||'';
+          const statusCompleto=item.dataHora
+            ?[statusTexto,item.conferente||'Não informado',item.dataHora].join('\n')
+            :statusTexto;
+          return [
+            item.patrimonio||'',item.antigo||'',item.dataAquisicao||'',item.descricao||'',item.numeroSerie||'',
+            item.situacaoBem||'',statusCompleto,item.ultimoInventario||'',item.valorUnitario||'',item.observacao||''
+          ];
+        });
 
         doc.autoTable({
           startY:44,
@@ -1141,8 +1117,8 @@
           headStyles:{fillColor:[210,210,210],textColor:0,fontStyle:'bold',halign:'center',valign:'middle',lineColor:0,lineWidth:.2},
           columnStyles:{
             0:{cellWidth:22,halign:'center'},1:{cellWidth:20,halign:'center'},2:{cellWidth:18,halign:'center'},
-            3:{cellWidth:58},4:{cellWidth:28},5:{cellWidth:25},6:{cellWidth:25},7:{cellWidth:20},
-            8:{cellWidth:20,halign:'right'},9:{cellWidth:41}
+            3:{cellWidth:58},4:{cellWidth:28},5:{cellWidth:25},6:{cellWidth:30,halign:'center'},7:{cellWidth:20},
+            8:{cellWidth:20,halign:'right'},9:{cellWidth:36}
           },
           didDrawPage:()=>desenharCabecalho(grupo)
         });
@@ -1310,6 +1286,7 @@
         );
         
         console.log('Scanner iniciado com sucesso');
+        configurarZoomCamera();
         
       } catch (error) {
         console.error('Erro ao iniciar scanner:', error);
@@ -1317,6 +1294,44 @@
         stopScanner();
       }
     }
+
+    // Detecta se a câmera ativa suporta zoom e configura o controle deslizante
+    function configurarZoomCamera(){
+      const zoomControl=document.getElementById('zoom-control');
+      const zoomSlider=document.getElementById('zoom-slider');
+      try{
+        if(!html5QrCode||typeof html5QrCode.getRunningTrackCapabilities!=='function'){
+          zoomControl.style.display='none';
+          return;
+        }
+        const capabilities=html5QrCode.getRunningTrackCapabilities();
+        if(!capabilities||!capabilities.zoom){
+          zoomControl.style.display='none';
+          return;
+        }
+        const {min,max,step}=capabilities.zoom;
+        zoomSlider.min=min;
+        zoomSlider.max=max;
+        zoomSlider.step=step||0.1;
+        let valorInicial=min;
+        try{
+          const settings=html5QrCode.getRunningTrackSettings();
+          if(settings&&typeof settings.zoom==='number')valorInicial=settings.zoom;
+        }catch(e){/* configurações atuais indisponíveis, usa o mínimo */}
+        zoomSlider.value=valorInicial;
+        zoomControl.style.display='block';
+      }catch(e){
+        console.warn('Zoom não suportado nesta câmera/navegador:',e);
+        zoomControl.style.display='none';
+      }
+    }
+
+    document.getElementById('zoom-slider').addEventListener('input',e=>{
+      if(!html5QrCode)return;
+      const valor=parseFloat(e.target.value);
+      html5QrCode.applyVideoConstraints({advanced:[{zoom:valor}]})
+        .catch(err=>console.warn('Erro ao aplicar zoom:',err));
+    });
 
     function onScanSuccess(decodedText, decodedResult) {
       console.log(`Código escaneado: ${decodedText}`);
@@ -1342,6 +1357,7 @@
           html5QrCode = null;
         }
         document.getElementById('camera-status').style.display = 'none';
+        document.getElementById('zoom-control').style.display = 'none';
         console.log('Scanner parado');
       } catch (error) {
         console.warn('Erro ao parar scanner:', error);
@@ -1412,7 +1428,6 @@
         els.btnPdf.disabled=true;
         els.btnImprimirLista.disabled=true;
         atualizarBotaoEtiquetas();
-        els.dashboard.style.display='none';
         els.infoUnidade.style.display='none';
         limparFiltros();
         mostrarFeedback('Dados limpos com sucesso','success',false);
