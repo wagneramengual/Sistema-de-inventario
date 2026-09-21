@@ -26,6 +26,12 @@
     .counter-card{border-radius:10px;padding:12px 10px;text-align:center;color:#fff;font-weight:600;cursor:pointer}
     .counter-card:hover{transform:translateY(-4px);transition:all .12s}
     .counter-card.filter-selected{outline:4px solid rgba(13,110,253,.28);box-shadow:0 0 0 3px #fff,0 0 0 6px #0d6efd;transform:translateY(-3px)}
+    @media (max-width:767.98px){
+      .counter-card{padding:8px 4px;border-radius:8px}
+      .counter-card div:first-child{font-size:.68rem;line-height:1.1;white-space:normal}
+      .counter-card div:last-child{font-size:1.05rem}
+      .counter-card.filter-selected{outline-width:2px;box-shadow:0 0 0 2px #fff,0 0 0 4px #0d6efd}
+    }
     .filter-control-active{border:2px solid #0d6efd!important;background:#eef5ff!important;box-shadow:0 0 0 .2rem rgba(13,110,253,.15)!important}
     #toggle-filtros.filters-active{background:#0d6efd;color:#fff;border-color:#0d6efd;font-weight:700}
     .obs-input{min-width:210px}
@@ -101,13 +107,20 @@
     <div id="upload-warning" class="alert alert-warning mt-2 mb-0" style="display:none"></div>
   </div>
 
-  <div class="row g-3 mb-3 text-center">
-    <div class="col-md-2"><div class="counter-card bg-primary" data-filter=""><div>Total</div><div id="total-bens">0</div></div></div>
-    <div class="col-md-2"><div class="counter-card bg-success" data-filter="localizado"><div>Localizados</div><div id="total-localizados">0</div></div></div>
-    <div class="col-md-2"><div class="counter-card bg-info" data-filter="antigo"><div>Etiqueta Antiga</div><div id="total-antigos">0</div></div></div>
-    <div class="col-md-2"><div class="counter-card bg-secondary" data-filter="nao-localizado"><div>Não Localizado</div><div id="total-nao">0</div></div></div>
-    <div class="col-md-2"><div class="counter-card bg-warning text-dark" data-filter="fora"><div>Fora da Lista</div><div id="total-fora">0</div></div></div>
-    <div class="col-md-2"><div class="counter-card bg-dark"><div>Centros</div><div id="total-centros">0</div></div></div>
+  <div class="row g-2 g-md-3 mb-3 text-center">
+    <div class="col-4 col-md-2"><div class="counter-card bg-primary" data-filter=""><div>Total</div><div id="total-bens">0</div></div></div>
+    <div class="col-4 col-md-2"><div class="counter-card bg-success" data-filter="localizado"><div>Localizados</div><div id="total-localizados">0</div></div></div>
+    <div class="col-4 col-md-2"><div class="counter-card bg-info" data-filter="antigo"><div>Etiqueta Antiga</div><div id="total-antigos">0</div></div></div>
+    <div class="col-4 col-md-2"><div class="counter-card bg-secondary" data-filter="nao-localizado"><div>Não Localizado</div><div id="total-nao">0</div></div></div>
+    <div class="col-4 col-md-2"><div class="counter-card bg-warning text-dark" data-filter="fora"><div>Fora da Lista</div><div id="total-fora">0</div></div></div>
+    <div class="col-4 col-md-2"><div class="counter-card bg-dark"><div>Centros</div><div id="total-centros">0</div></div></div>
+  </div>
+
+
+  <div class="card p-3 mb-3">
+    <label class="form-label fw-bold">Conferente responsável pela leitura</label>
+    <input id="conferente-nome" class="form-control" placeholder="Nome de quem está fazendo a conferência" maxlength="80" autocomplete="off">
+    <div class="form-text">Fica registrado em cada leitura, para fins de auditoria.</div>
   </div>
 
   <div class="card p-3 mb-3">
@@ -119,6 +132,7 @@
   <div class="text-center mb-2">
     <button id="toggle-filtros" class="btn btn-outline-primary">Mostrar/ocultar filtros avançados</button>
     <button id="btn-desfazer" class="btn btn-outline-secondary ms-2" disabled>↩️ Desfazer última leitura</button>
+    <button id="btn-historico" class="btn btn-outline-info ms-2">📜 Histórico de Leituras</button>
     <button id="btn-limpar-dados" class="btn btn-outline-danger ms-2">Limpar Dados</button>
   </div>
 
@@ -193,6 +207,7 @@
   <div class="text-center my-3">
     <button id="btn-exportar" class="btn btn-primary" disabled>Exportar Excel</button>
     <button id="btn-exportar-pdf" class="btn btn-danger ms-2" disabled>Exportar PDF</button>
+    <button id="btn-imprimir-lista" class="btn btn-outline-dark ms-2" disabled>🖨️ Imprimir lista filtrada</button>
     <button id="btn-imprimir-etiquetas" class="btn btn-dark ms-2" disabled>🖨️ Imprimir etiquetas selecionadas (0)</button>
     <div class="export-options">
       <div class="form-check form-check-inline">
@@ -225,6 +240,24 @@
 
   <div id="feedback-scan" class="feedback-scan">Código lido!</div>
 
+  <div id="modal-historico" class="scanner-modal">
+    <div class="scanner-content" style="max-width:820px;text-align:left">
+      <h5 class="mb-2 text-center">Histórico de Leituras</h5>
+      <div class="table-container" style="max-height:60vh">
+        <table class="table table-sm table-hover mb-0">
+          <thead>
+            <tr><th>Data/Hora</th><th>Conferente</th><th>Número</th><th>Ação</th><th>Detalhe</th></tr>
+          </thead>
+          <tbody id="historico-body"></tbody>
+        </table>
+      </div>
+      <div class="text-center mt-3">
+        <button id="btn-exportar-historico" class="btn btn-outline-primary">Exportar histórico (Excel)</button>
+        <button id="fechar-historico" class="btn btn-outline-secondary ms-2">Fechar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let dadosPlanilha=[],foraDaLista=[],processedSet=new Set();
     let indicePatrimonio=new Map();
@@ -233,6 +266,8 @@
     let html5QrCode = null;
     let ultimaAcao=null;
     let audioCtx=null;
+    let historicoAuditoria=[];
+    let conferenteAtual=localStorage.getItem('inventarioConferenteNome')||'';
 
     const els={
       upload:document.getElementById('upload-excel'),
@@ -242,6 +277,7 @@
       tabelaContainer:document.getElementById('tabela-container'),
       btnExport:document.getElementById('btn-exportar'),
       btnPdf:document.getElementById('btn-exportar-pdf'),
+      btnImprimirLista:document.getElementById('btn-imprimir-lista'),
       btnImprimirEtiquetas:document.getElementById('btn-imprimir-etiquetas'),
       filtroCentro:document.getElementById('filtro-centro'),
       filtroSetor:document.getElementById('filtro-setor'),
@@ -257,7 +293,9 @@
       infoUnidade:document.getElementById('info-unidade'),
       infoCentroCusto:document.getElementById('info-centro-custo'),
       infoSetor:document.getElementById('info-setor'),
-      infoLocalizacao:document.getElementById('info-localizacao')
+      infoLocalizacao:document.getElementById('info-localizacao'),
+      conferenteNome:document.getElementById('conferente-nome'),
+      btnHistorico:document.getElementById('btn-historico')
     };
 
     // Normalização robusta
@@ -276,6 +314,48 @@
       const digitos = String(numero || '').replace(/\D/g, '');
       return digitos.length >= 6 ? 'novo' : 'antigo';
     };
+
+    // Validação de formato da leitura
+    const PATRIMONIO_MIN_DIGITOS = 2;
+    const PATRIMONIO_MAX_DIGITOS = 12;
+    const COOLDOWN_LEITURA_DUPLICADA_MS = 2000;
+    let ultimoScanBruto = {numero: null, timestamp: 0};
+
+    function validarFormatoNumero(numero){
+      const digitos = numero.replace(/[^0-9]/g, '');
+      if(digitos.length !== numero.length){
+        return {valido:false, motivo:'contém caracteres não numéricos'};
+      }
+      if(digitos.length < PATRIMONIO_MIN_DIGITOS){
+        return {valido:false, motivo:`número muito curto (mínimo ${PATRIMONIO_MIN_DIGITOS} dígitos)`};
+      }
+      if(digitos.length > PATRIMONIO_MAX_DIGITOS){
+        return {valido:false, motivo:`número muito longo (máximo ${PATRIMONIO_MAX_DIGITOS} dígitos)`};
+      }
+      return {valido:true};
+    }
+
+    // Auditoria: registra cada leitura/ação, com conferente e timestamp
+    const ROTULOS_AUDITORIA={
+      localizado:'Localizado',
+      antigo:'Etiqueta antiga localizada',
+      fora:'Fora da lista',
+      'ja-processado':'Já processado',
+      invalido:'Leitura inválida',
+      desfeito:'Desfeito'
+    };
+
+    function registrarAuditoria(entrada){
+      historicoAuditoria.push({
+        dataHora:new Date().toLocaleString('pt-BR'),
+        conferente:conferenteAtual.trim()||'Não informado',
+        numero:entrada.numero||'',
+        tipo:entrada.tipo,
+        detalhe:entrada.detalhe||''
+      });
+      // Evita crescimento indefinido do histórico guardado no navegador
+      if(historicoAuditoria.length>5000)historicoAuditoria.splice(0,historicoAuditoria.length-5000);
+    }
 
 
     function garantirCamposAuxiliares(){
@@ -396,6 +476,7 @@
         dadosPlanilha=dados.dadosPlanilha||[];
         foraDaLista=dados.foraDaLista||[];
         processedSet=new Set(dados.processedSet||[]);
+        historicoAuditoria=dados.historicoAuditoria||[];
         garantirCamposAuxiliares();
         reconstruirIndice();
         atualizarInfoUnidade();
@@ -405,6 +486,7 @@
         els.tabelaContainer.classList.remove('d-none');
         els.btnExport.disabled=false;
         els.btnPdf.disabled=false;
+        els.btnImprimirLista.disabled=false;
         preencherFiltros();
         els.dashboard.style.display='flex';
       }
@@ -600,6 +682,7 @@
         els.tabelaContainer.classList.remove('d-none');
         els.btnExport.disabled=false;
         els.btnPdf.disabled=false;
+        els.btnImprimirLista.disabled=false;
         els.dashboard.style.display='flex';
         salvarDados();
 
@@ -638,8 +721,23 @@
       const numero=normalizeWithZeroTrim(num);
       if(!numero)return;
 
+      const validacao=validarFormatoNumero(numero);
+      if(!validacao.valido){
+        mostrarFeedback(`Leitura inválida: ${validacao.motivo}`,'warning','fora');
+        registrarAuditoria({numero,tipo:'invalido',detalhe:validacao.motivo});
+        return;
+      }
+
+      const agora=Date.now();
+      if(ultimoScanBruto.numero===numero && (agora-ultimoScanBruto.timestamp)<COOLDOWN_LEITURA_DUPLICADA_MS){
+        // Provável eco/duplo-bipe do scanner para a mesma leitura: ignora silenciosamente
+        return;
+      }
+      ultimoScanBruto={numero,timestamp:agora};
+
       if(processedSet.has(numero)){
         mostrarFeedback('Item já processado','info','ja-processado');
+        registrarAuditoria({numero,tipo:'ja-processado',detalhe:'Bloqueado - já processado nesta sessão'});
         return;
       }
 
@@ -653,14 +751,17 @@
         if(encontrado.status==='localizado'||encontrado.status==='antigo'){
           encontrado.dataHora=dataHora;
           mostrarFeedback('Item já localizado anteriormente','info','ja-processado');
+          registrarAuditoria({numero,tipo:'ja-processado',detalhe:`Relido - já estava "${statusAnterior}"`});
         }else if(achado.tipo==='patrimonio'){
           encontrado.status='localizado';
           encontrado.dataHora=dataHora;
           mostrarFeedback('Patrimônio localizado!','success','novo');
+          registrarAuditoria({numero,tipo:'localizado'});
         }else{
           encontrado.status='antigo';
           encontrado.dataHora=dataHora;
           mostrarFeedback('Etiqueta antiga localizada!','info','novo');
+          registrarAuditoria({numero,tipo:'antigo'});
         }
         ultimaAcao={tipo:'planilha',uid:encontrado.uid,numero,statusAnterior,dataHoraAnterior};
       }else{
@@ -668,6 +769,7 @@
         const fora={uid:`fora-${Date.now()}-${numero}`,numero,tipoNumero,dataHora,status:'fora',observacao:'',imprimirEtiqueta:false};
         foraDaLista.push(fora);
         mostrarFeedback('Item fora da lista original','warning','fora');
+        registrarAuditoria({numero,tipo:'fora'});
         ultimaAcao={tipo:'fora',uid:fora.uid,numero};
       }
 
@@ -694,7 +796,9 @@
         }
       }
 
+      registrarAuditoria({numero:ultimaAcao.numero,tipo:'desfeito',detalhe:`Leitura de tipo "${ultimaAcao.tipo}" revertida`});
       processedSet.delete(ultimaAcao.numero);
+      ultimoScanBruto={numero:null,timestamp:0};
       ultimaAcao=null;
       els.btnDesfazer.disabled=true;
 
@@ -706,20 +810,35 @@
 
     els.btnDesfazer.addEventListener('click',desfazerUltimaLeitura);
 
-    function atualizarTabela(){
+    function itemPassaFiltros(i){
       const filtroCentro=els.filtroCentro.value;
       const filtroSetor=els.filtroSetor.value;
       const filtroStatus=els.filtroStatus.value;
       const filtroTexto=normalize(els.filtroTexto.value);
+      const centroMatch=!filtroCentro||i.centroCusto===filtroCentro;
+      const setorMatch=!filtroSetor||i.setor===filtroSetor;
+      const statusMatch=!filtroStatus||i.status===filtroStatus;
+      const textoBase=`${i.patrimonio||''} ${i.antigo||''} ${i.descricao||''} ${i.centroCusto||''} ${i.setor||''} ${i.localizacao||''} ${i.observacao||''}`;
+      const textoMatch=!filtroTexto||normalize(textoBase).includes(filtroTexto);
+      return centroMatch&&setorMatch&&statusMatch&&textoMatch;
+    }
+
+    function obterItensFiltrados(){
+      const todos=[
+        ...dadosPlanilha.map(i=>({...i})),
+        ...foraDaLista.map(f=>{
+          const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
+          return {...f,patrimonio:tipoNumero==='novo'?f.numero:'',antigo:tipoNumero==='antigo'?f.numero:'',descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-'};
+        })
+      ];
+      return todos.filter(itemPassaFiltros);
+    }
+
+    function atualizarTabela(){
       const fragment=document.createDocumentFragment();
 
       const renderItem=(i,fora=false)=>{
-        const centroMatch=!filtroCentro||i.centroCusto===filtroCentro;
-        const setorMatch=!filtroSetor||i.setor===filtroSetor;
-        const statusMatch=!filtroStatus||i.status===filtroStatus;
-        const textoBase=`${i.patrimonio||''} ${i.antigo||''} ${i.descricao||''} ${i.centroCusto||''} ${i.setor||''} ${i.localizacao||''} ${i.observacao||''}`;
-        const textoMatch=!filtroTexto||normalize(textoBase).includes(filtroTexto);
-        if(!(centroMatch&&setorMatch&&statusMatch&&textoMatch))return;
+        if(!itemPassaFiltros(i))return;
 
         const statusLabel={localizado:'Localizado',antigo:'Etiqueta Antiga',fora:'Fora da Lista','nao-localizado':'Não Localizado'}[i.status]||i.status;
         const tr=document.createElement('tr');
@@ -836,6 +955,61 @@
       janela.document.close();
     }
 
+    function imprimirListaFiltrada(){
+      const itens=obterItensFiltrados();
+      if(itens.length===0){
+        mostrarFeedback('Nenhum item para imprimir com os filtros atuais','warning',false);
+        return;
+      }
+
+      const statusLabel={localizado:'Localizado',antigo:'Etiqueta Antiga',fora:'Fora da Lista','nao-localizado':'Não Localizado'};
+      const linhas=itens.map(i=>`
+        <tr>
+          <td>${escapeHtml(i.patrimonio||'-')}</td>
+          <td>${escapeHtml(i.antigo||'-')}</td>
+          <td>${escapeHtml(i.descricao||'-')}</td>
+          <td>${escapeHtml(statusLabel[i.status]||i.status||'-')}</td>
+          <td>${escapeHtml(i.observacao||'-')}</td>
+          <td>${escapeHtml(i.dataHora||'-')}</td>
+        </tr>`).join('');
+
+      const filtrosAtivos=[];
+      if(els.filtroCentro.value)filtrosAtivos.push(`Centro de Custo: ${els.filtroCentro.value}`);
+      if(els.filtroSetor.value)filtrosAtivos.push(`Setor: ${els.filtroSetor.value}`);
+      if(els.filtroStatus.value)filtrosAtivos.push(`Status: ${statusLabel[els.filtroStatus.value]||els.filtroStatus.value}`);
+      if(els.filtroTexto.value.trim())filtrosAtivos.push(`Busca: "${els.filtroTexto.value.trim()}"`);
+      const resumoFiltros=filtrosAtivos.length?filtrosAtivos.join(' • '):'Nenhum filtro aplicado (lista completa)';
+
+      const janela=window.open('','_blank','width=900,height=700');
+      if(!janela){
+        mostrarFeedback('Permita pop-ups no navegador para imprimir a lista','warning',false);
+        return;
+      }
+      janela.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Lista de Inventário</title><style>
+        @page{size:A4 landscape;margin:12mm}
+        *{box-sizing:border-box}
+        body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:0}
+        header{text-align:center;margin-bottom:10px}
+        header h1{font-size:16pt;margin:0 0 2px}
+        header p{font-size:9pt;margin:0;color:#444}
+        table{width:100%;border-collapse:collapse;font-size:9pt}
+        th,td{border:1px solid #999;padding:4px 6px;text-align:left;word-break:break-word}
+        thead th{background:#eee}
+      </style></head><body>
+        <header>
+          <h1>Defensoria Pública RS — Lista de Inventário Patrimonial</h1>
+          <p>${escapeHtml(resumoFiltros)}</p>
+          <p>Gerado em ${escapeHtml(new Date().toLocaleString('pt-BR'))} • ${itens.length} item(ns)</p>
+        </header>
+        <table>
+          <thead><tr><th>Registro Patrimonial</th><th>Registro Antigo</th><th>Descrição</th><th>Status</th><th>Observação</th><th>Data/Hora</th></tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      <script>window.onload=()=>{setTimeout(()=>window.print(),250)}<\/script>
+      </body></html>`);
+      janela.document.close();
+    }
+
     els.tabelaBody.addEventListener('input',e=>{
       if(e.target.dataset.action!=='observacao')return;
       const tr=e.target.closest('tr[data-uid]');
@@ -885,6 +1059,7 @@
         dadosPlanilha,
         foraDaLista,
         processedSet:Array.from(processedSet),
+        historicoAuditoria,
         timestamp:new Date().toISOString()
       };
       localStorage.setItem('inventarioDados',JSON.stringify(dadosSalvar));
@@ -1221,10 +1396,12 @@
     
     els.btnLimpar.onclick=()=>{
       if(confirm('Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.')){
-        localStorage.clear();
+        localStorage.removeItem('inventarioDados');
         dadosPlanilha=[];
         foraDaLista=[];
         processedSet=new Set();
+        historicoAuditoria=[];
+        ultimoScanBruto={numero:null,timestamp:0};
         ultimaAcao=null;
         els.btnDesfazer.disabled=true;
         els.tabelaBody.innerHTML='';
@@ -1233,6 +1410,7 @@
         els.tabelaContainer.classList.add('d-none');
         els.btnExport.disabled=true;
         els.btnPdf.disabled=true;
+        els.btnImprimirLista.disabled=true;
         atualizarBotaoEtiquetas();
         els.dashboard.style.display='none';
         els.infoUnidade.style.display='none';
@@ -1249,7 +1427,59 @@
     els.input.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.value.trim()){processarNumero(e.target.value.trim());e.target.value='';}});
     els.btnExport.onclick=exportarExcel;
     els.btnPdf.onclick=exportarPDF;
+    els.btnImprimirLista.onclick=imprimirListaFiltrada;
     els.btnImprimirEtiquetas.onclick=imprimirEtiquetasSelecionadas;
+
+    // Conferente responsável (persiste separadamente, sobrevive ao "Limpar Dados")
+    els.conferenteNome.value=conferenteAtual;
+    els.conferenteNome.addEventListener('input',()=>{
+      conferenteAtual=els.conferenteNome.value;
+      localStorage.setItem('inventarioConferenteNome',conferenteAtual);
+    });
+
+    // Histórico de auditoria
+    function renderizarHistorico(){
+      const tbody=document.getElementById('historico-body');
+      if(historicoAuditoria.length===0){
+        tbody.innerHTML='<tr><td colspan="5" class="text-center text-muted">Nenhuma leitura registrada ainda.</td></tr>';
+        return;
+      }
+      const linhas=[...historicoAuditoria].reverse().map(h=>`
+        <tr>
+          <td>${escapeHtml(h.dataHora)}</td>
+          <td>${escapeHtml(h.conferente)}</td>
+          <td>${escapeHtml(h.numero)}</td>
+          <td>${escapeHtml(ROTULOS_AUDITORIA[h.tipo]||h.tipo)}</td>
+          <td>${escapeHtml(h.detalhe||'')}</td>
+        </tr>`).join('');
+      tbody.innerHTML=linhas;
+    }
+
+    els.btnHistorico.addEventListener('click',()=>{
+      renderizarHistorico();
+      document.getElementById('modal-historico').style.display='flex';
+    });
+    document.getElementById('fechar-historico').addEventListener('click',()=>{
+      document.getElementById('modal-historico').style.display='none';
+    });
+    document.getElementById('btn-exportar-historico').addEventListener('click',()=>{
+      if(historicoAuditoria.length===0){
+        mostrarFeedback('Não há histórico para exportar','info',false);
+        return;
+      }
+      const linhas=historicoAuditoria.map(h=>({
+        'Data/Hora':h.dataHora,
+        'Conferente':h.conferente,
+        'Número':h.numero,
+        'Ação':ROTULOS_AUDITORIA[h.tipo]||h.tipo,
+        'Detalhe':h.detalhe||''
+      }));
+      const ws=XLSX.utils.json_to_sheet(linhas);
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,'Histórico de Leituras');
+      const dataArquivo=new Date().toISOString().slice(0,10);
+      XLSX.writeFile(wb,`historico_auditoria_${dataArquivo}.xlsx`);
+    });
 
     // Inicialização
     carregarDadosSalvos();
