@@ -6,9 +6,6 @@
   <title>Inventário Patrimonial - Defensoria Pública RS</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     body{padding:18px;background:#f8f9fa;font-family:Segoe UI,system-ui,Arial,sans-serif}
@@ -26,12 +23,6 @@
     .counter-card{border-radius:10px;padding:12px 10px;text-align:center;color:#fff;font-weight:600;cursor:pointer}
     .counter-card:hover{transform:translateY(-4px);transition:all .12s}
     .counter-card.filter-selected{outline:4px solid rgba(13,110,253,.28);box-shadow:0 0 0 3px #fff,0 0 0 6px #0d6efd;transform:translateY(-3px)}
-    @media (max-width:767.98px){
-      .counter-card{padding:8px 4px;border-radius:8px}
-      .counter-card div:first-child{font-size:.68rem;line-height:1.1;white-space:normal}
-      .counter-card div:last-child{font-size:1.05rem}
-      .counter-card.filter-selected{outline-width:2px;box-shadow:0 0 0 2px #fff,0 0 0 4px #0d6efd}
-    }
     .filter-control-active{border:2px solid #0d6efd!important;background:#eef5ff!important;box-shadow:0 0 0 .2rem rgba(13,110,253,.15)!important}
     #toggle-filtros.filters-active{background:#0d6efd;color:#fff;border-color:#0d6efd;font-weight:700}
     .obs-input{min-width:210px}
@@ -42,6 +33,9 @@
     .progress{height:8px}
     .search-box{margin-bottom:15px}
     .export-options{margin-top:10px}
+    .dashboard-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;border-radius:10px;padding:15px;margin-bottom:15px}
+    .metric-value{font-size:24px;font-weight:bold}
+    .metric-label{font-size:12px;opacity:0.9}
     .footer-developer{text-align:center;margin-top:30px;padding:15px;color:#6c757d;font-size:0.9em;border-top:1px solid #dee2e6;background:linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%);border-radius:8px;font-style:italic}
     .footer-developer strong{color:#495057;font-weight:600}
     .info-header{background:linear-gradient(135deg,#e3f2fd 0%,#bbdefb 100%);border-radius:8px;padding:15px;margin-bottom:15px;border-left:4px solid #2196f3}
@@ -55,6 +49,34 @@
     <img src="https://www.defensoria.rs.def.br/themes/modelo-hotsite/images/logos/logo.png" alt="Defensoria Pública RS" style="height:56px;">
     <h1 class="text-primary fw-bold mt-2">Inventário Patrimonial - Unidade Central</h1>
     <p class="text-muted">Sistema de Controle e Consolidação de Bens — Defensoria Pública RS</p>
+  </div>
+
+  <!-- Dashboard de Métricas -->
+  <div id="dashboard" class="row g-3 mb-3" style="display:none">
+    <div class="col-md-3">
+      <div class="dashboard-card">
+        <div class="metric-value" id="metric-total">0</div>
+        <div class="metric-label">TOTAL DE BENS</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="dashboard-card">
+        <div class="metric-value" id="metric-localizados">0</div>
+        <div class="metric-label">LOCALIZADOS</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="dashboard-card">
+        <div class="metric-value" id="metric-conclusao">0%</div>
+        <div class="metric-label">CONCLUSÃO</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="dashboard-card">
+        <div class="metric-value" id="metric-centros">0</div>
+        <div class="metric-label">CENTROS DE CUSTO</div>
+      </div>
+    </div>
   </div>
 
   <!-- Barra de Progresso -->
@@ -73,35 +95,25 @@
     <input type="file" id="upload-excel" class="form-control" accept=".xlsx,.xls">
     <div class="form-text">Suporta planilhas de Termo de Responsabilidade da Defensoria Pública RS</div>
     <div id="upload-error" class="text-danger mt-2" style="display:none"></div>
-    <div id="upload-warning" class="alert alert-warning mt-2 mb-0" style="display:none"></div>
   </div>
 
-  <div class="row g-2 g-md-3 mb-3 text-center">
-    <div class="col-4 col-md-2"><div class="counter-card bg-primary" data-filter=""><div>Total</div><div id="total-bens">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-success" data-filter="localizado"><div>Localizados</div><div id="total-localizados">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-info" data-filter="antigo"><div>Etiqueta Antiga</div><div id="total-antigos">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-secondary" data-filter="nao-localizado"><div>Não Localizado</div><div id="total-nao">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-warning text-dark" data-filter="fora"><div>Fora da Lista</div><div id="total-fora">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-dark"><div>Centros</div><div id="total-centros">0</div></div></div>
-  </div>
-
-
-  <div class="card p-3 mb-3">
-    <label class="form-label fw-bold">Conferente responsável pela leitura</label>
-    <input id="conferente-nome" class="form-control" placeholder="Nome de quem está fazendo a conferência" maxlength="80" autocomplete="off">
-    <div class="form-text">Fica registrado em cada leitura, para fins de auditoria.</div>
+  <div class="row g-3 mb-3 text-center">
+    <div class="col-md-2"><div class="counter-card bg-primary" data-filter=""><div>Total</div><div id="total-bens">0</div></div></div>
+    <div class="col-md-2"><div class="counter-card bg-success" data-filter="localizado"><div>Localizados</div><div id="total-localizados">0</div></div></div>
+    <div class="col-md-2"><div class="counter-card bg-info" data-filter="antigo"><div>Etiqueta Antiga</div><div id="total-antigos">0</div></div></div>
+    <div class="col-md-2"><div class="counter-card bg-secondary" data-filter="nao-localizado"><div>Não Localizado</div><div id="total-nao">0</div></div></div>
+    <div class="col-md-2"><div class="counter-card bg-warning text-dark" data-filter="fora"><div>Fora da Lista</div><div id="total-fora">0</div></div></div>
+    <div class="col-md-2"><div class="counter-card bg-dark"><div>Centros</div><div id="total-centros">0</div></div></div>
   </div>
 
   <div class="card p-3 mb-3">
     <label class="form-label fw-bold">Digite ou escaneie o número</label>
-    <input id="numero-patrimonio" class="form-control text-center" placeholder="Digite ou escaneie aqui..." inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false">
+    <input id="numero-patrimonio" class="form-control text-center" type="text" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Digite ou escaneie aqui...">
     <div id="status-texto" class="mt-2 text-muted">Aguardando leitura...</div>
   </div>
 
   <div class="text-center mb-2">
     <button id="toggle-filtros" class="btn btn-outline-primary">Mostrar/ocultar filtros avançados</button>
-    <button id="btn-desfazer" class="btn btn-outline-secondary ms-2" disabled>↩️ Desfazer última leitura</button>
-    <button id="btn-historico" class="btn btn-outline-info ms-2">📜 Histórico de Leituras</button>
     <button id="btn-limpar-dados" class="btn btn-outline-danger ms-2">Limpar Dados</button>
   </div>
 
@@ -175,9 +187,6 @@
 
   <div class="text-center my-3">
     <button id="btn-exportar" class="btn btn-primary" disabled>Exportar Excel</button>
-    <button id="btn-exportar-pdf" class="btn btn-danger ms-2" disabled>Exportar PDF</button>
-    <button id="btn-imprimir-lista" class="btn btn-outline-dark ms-2" disabled>🖨️ Imprimir lista filtrada</button>
-    <button id="btn-imprimir-etiquetas" class="btn btn-dark ms-2" disabled>🖨️ Imprimir etiquetas selecionadas (0)</button>
     <div class="export-options">
       <div class="form-check form-check-inline">
         <input class="form-check-input" type="checkbox" id="export-completo" checked>
@@ -201,10 +210,6 @@
       <div id="camera-status">Scanner ativo</div>
       <h5 class="mb-2">Scanner de Código de Barras</h5>
       <div id="reader"></div>
-      <div id="zoom-control" class="mt-2 px-2" style="display:none">
-        <label for="zoom-slider" class="form-label small mb-0 text-muted">🔍 Zoom da câmera</label>
-        <input type="range" id="zoom-slider" class="form-range">
-      </div>
       <div class="mt-3">
         <button id="close-scanner" class="btn btn-danger">Fechar</button>
       </div>
@@ -213,34 +218,12 @@
 
   <div id="feedback-scan" class="feedback-scan">Código lido!</div>
 
-  <div id="modal-historico" class="scanner-modal">
-    <div class="scanner-content" style="max-width:820px;text-align:left">
-      <h5 class="mb-2 text-center">Histórico de Leituras</h5>
-      <div class="table-container" style="max-height:60vh">
-        <table class="table table-sm table-hover mb-0">
-          <thead>
-            <tr><th>Data/Hora</th><th>Conferente</th><th>Número</th><th>Ação</th><th>Detalhe</th></tr>
-          </thead>
-          <tbody id="historico-body"></tbody>
-        </table>
-      </div>
-      <div class="text-center mt-3">
-        <button id="btn-exportar-historico" class="btn btn-outline-primary">Exportar histórico (Excel)</button>
-        <button id="fechar-historico" class="btn btn-outline-secondary ms-2">Fechar</button>
-      </div>
-    </div>
-  </div>
-
   <script>
     let dadosPlanilha=[],foraDaLista=[],processedSet=new Set();
     let indicePatrimonio=new Map();
     let estatisticasCache={total:0,localizados:0,antigos:0,processados:0,naoLocalizados:0,fora:0,centros:0,percentual:0};
     let feedbackTimer=null;
     let html5QrCode = null;
-    let ultimaAcao=null;
-    let audioCtx=null;
-    let historicoAuditoria=[];
-    let conferenteAtual=localStorage.getItem('inventarioConferenteNome')||'';
 
     const els={
       upload:document.getElementById('upload-excel'),
@@ -249,9 +232,6 @@
       tabelaBody:document.getElementById('tabela-body'),
       tabelaContainer:document.getElementById('tabela-container'),
       btnExport:document.getElementById('btn-exportar'),
-      btnPdf:document.getElementById('btn-exportar-pdf'),
-      btnImprimirLista:document.getElementById('btn-imprimir-lista'),
-      btnImprimirEtiquetas:document.getElementById('btn-imprimir-etiquetas'),
       filtroCentro:document.getElementById('filtro-centro'),
       filtroSetor:document.getElementById('filtro-setor'),
       filtroStatus:document.getElementById('filtro-status'),
@@ -260,14 +240,11 @@
       progressBar:document.getElementById('progress-bar'),
       progressText:document.getElementById('progress-text'),
       btnLimpar:document.getElementById('btn-limpar-dados'),
-      btnDesfazer:document.getElementById('btn-desfazer'),
-      uploadWarning:document.getElementById('upload-warning'),
+      dashboard:document.getElementById('dashboard'),
       infoUnidade:document.getElementById('info-unidade'),
       infoCentroCusto:document.getElementById('info-centro-custo'),
       infoSetor:document.getElementById('info-setor'),
-      infoLocalizacao:document.getElementById('info-localizacao'),
-      conferenteNome:document.getElementById('conferente-nome'),
-      btnHistorico:document.getElementById('btn-historico')
+      infoLocalizacao:document.getElementById('info-localizacao')
     };
 
     // Normalização robusta
@@ -280,55 +257,6 @@
       return normalized.replace(/^0+/, '') || '0';
     };
 
-    // Classifica um número "fora da lista" como patrimônio novo ou antigo
-    // Padrão adotado: 6 dígitos ou mais = novo | 5 dígitos ou menos = antigo
-    const classificarNumeroFora = numero => {
-      const digitos = String(numero || '').replace(/\D/g, '');
-      return digitos.length >= 6 ? 'novo' : 'antigo';
-    };
-
-    // Validação de formato da leitura
-    const PATRIMONIO_MIN_DIGITOS = 2;
-    const PATRIMONIO_MAX_DIGITOS = 12;
-    const COOLDOWN_LEITURA_DUPLICADA_MS = 2000;
-    let ultimoScanBruto = {numero: null, timestamp: 0};
-
-    function validarFormatoNumero(numero){
-      const digitos = numero.replace(/[^0-9]/g, '');
-      if(digitos.length !== numero.length){
-        return {valido:false, motivo:'contém caracteres não numéricos'};
-      }
-      if(digitos.length < PATRIMONIO_MIN_DIGITOS){
-        return {valido:false, motivo:`número muito curto (mínimo ${PATRIMONIO_MIN_DIGITOS} dígitos)`};
-      }
-      if(digitos.length > PATRIMONIO_MAX_DIGITOS){
-        return {valido:false, motivo:`número muito longo (máximo ${PATRIMONIO_MAX_DIGITOS} dígitos)`};
-      }
-      return {valido:true};
-    }
-
-    // Auditoria: registra cada leitura/ação, com conferente e timestamp
-    const ROTULOS_AUDITORIA={
-      localizado:'Localizado',
-      antigo:'Etiqueta antiga localizada',
-      fora:'Fora da lista',
-      'ja-processado':'Já processado',
-      invalido:'Leitura inválida',
-      desfeito:'Desfeito'
-    };
-
-    function registrarAuditoria(entrada){
-      historicoAuditoria.push({
-        dataHora:new Date().toLocaleString('pt-BR'),
-        conferente:conferenteAtual.trim()||'Não informado',
-        numero:entrada.numero||'',
-        tipo:entrada.tipo,
-        detalhe:entrada.detalhe||''
-      });
-      // Evita crescimento indefinido do histórico guardado no navegador
-      if(historicoAuditoria.length>5000)historicoAuditoria.splice(0,historicoAuditoria.length-5000);
-    }
-
 
     function garantirCamposAuxiliares(){
       let seq=0;
@@ -336,14 +264,11 @@
         if(!item.uid)item.uid=`bem-${Date.now()}-${seq++}`;
         if(typeof item.observacao!=='string')item.observacao='';
         if(typeof item.imprimirEtiqueta!=='boolean')item.imprimirEtiqueta=false;
-        if(typeof item.conferente!=='string')item.conferente='';
       });
       foraDaLista.forEach(item=>{
         if(!item.uid)item.uid=`fora-${Date.now()}-${seq++}`;
         if(typeof item.observacao!=='string')item.observacao='';
         if(typeof item.imprimirEtiqueta!=='boolean')item.imprimirEtiqueta=false;
-        if(typeof item.conferente!=='string')item.conferente='';
-        if(item.tipoNumero!=='novo'&&item.tipoNumero!=='antigo')item.tipoNumero=classificarNumeroFora(item.numero);
       });
     }
 
@@ -398,48 +323,7 @@
       const texto = String(unidade);
       // Remove o código do início (tudo antes do "-") e retorna o nome do centro de custo
       const match = texto.split(' - ');
-      return match.length > 1 ? normalize(match.slice(1).join(' - ')) : normalize(texto.replace(/UNIDADE:/i,'').trim());
-    }
-
-    function formatarDataPlanilha(valor){
-      if(!valor)return '';
-      if(typeof valor==='number' && window.XLSX?.SSF){
-        const data=XLSX.SSF.parse_date_code(valor);
-        if(data)return `${String(data.d).padStart(2,'0')}/${String(data.m).padStart(2,'0')}/${data.y}`;
-      }
-      return String(valor).trim();
-    }
-
-    function formatarValorPlanilha(valor){
-      if(valor==='' || valor===null || valor===undefined)return '';
-      if(typeof valor==='number')return valor.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-      return String(valor).trim();
-    }
-
-    // Detecta números que aparecem em mais de uma aba, indicando de onde vem cada conflito
-    function detectarConflitosAbas(dados){
-      const porPatrimonio=new Map();
-      const porAntigo=new Map();
-      dados.forEach(item=>{
-        const p=normalizeWithZeroTrim(item.patrimonio);
-        if(p&&p!=='0'){
-          if(!porPatrimonio.has(p))porPatrimonio.set(p,new Set());
-          porPatrimonio.get(p).add(item.abaOrigem||'Aba desconhecida');
-        }
-        const a=normalizeWithZeroTrim(item.antigo);
-        if(a&&a!=='0'){
-          if(!porAntigo.has(a))porAntigo.set(a,new Set());
-          porAntigo.get(a).add(item.abaOrigem||'Aba desconhecida');
-        }
-      });
-      const conflitos=[];
-      porPatrimonio.forEach((abas,numero)=>{
-        if(abas.size>1)conflitos.push(`Patrimônio ${numero} aparece em: ${[...abas].join(', ')}`);
-      });
-      porAntigo.forEach((abas,numero)=>{
-        if(abas.size>1)conflitos.push(`Registro antigo ${numero} aparece em: ${[...abas].join(', ')}`);
-      });
-      return conflitos;
+      return match.length > 1 ? normalize(match[1]) : normalize(texto);
     }
 
     // Carregar dados salvos
@@ -450,7 +334,6 @@
         dadosPlanilha=dados.dadosPlanilha||[];
         foraDaLista=dados.foraDaLista||[];
         processedSet=new Set(dados.processedSet||[]);
-        historicoAuditoria=dados.historicoAuditoria||[];
         garantirCamposAuxiliares();
         reconstruirIndice();
         atualizarInfoUnidade();
@@ -459,9 +342,8 @@
         atualizarResumoVisual();
         els.tabelaContainer.classList.remove('d-none');
         els.btnExport.disabled=false;
-        els.btnPdf.disabled=false;
-        els.btnImprimirLista.disabled=false;
         preencherFiltros();
+        els.dashboard.style.display='flex';
       }
     }
 
@@ -483,17 +365,11 @@
       if(!rows || rows.length===0) throw new Error('Planilha vazia');
 
       let centroCusto='Não informado';
-      let unidade='Não informado';
       let localizacao='Não informado';
       let dependencia='Não informado';
       let posPatrimonial=-1;
       let posAntigo=-1;
       let posDescricao=-1;
-      let posDataAquisicao=-1;
-      let posNumeroSerie=-1;
-      let posSituacao=-1;
-      let posUltimoInventario=-1;
-      let posValorUnitario=-1;
       let linhaInicioDados=-1;
       const dados=[];
 
@@ -503,20 +379,12 @@
 
         for(let j=0;j<row.length;j++){
           const valor=String(row[j]||'');
-          if(valor.includes('UNIDADE:')){
-            unidade=normalize(valor.replace(/UNIDADE:/i,'').trim());
-            centroCusto=extrairCentroCusto(valor);
-          }
+          if(valor.includes('UNIDADE:')) centroCusto=extrairCentroCusto(valor);
           if(valor.includes('LOCALIZAÇÃO:')) localizacao=normalize(valor.replace('LOCALIZAÇÃO:','').trim());
           if(valor.includes('DEPENDÊNCIA:')) dependencia=normalize(valor.replace('DEPENDÊNCIA:','').trim());
           if(valor==='REGISTRO PATRIMONIAL') posPatrimonial=j;
           if(valor.includes('REGISTRO PATRIMONIAL ANTERIOR')) posAntigo=j;
           if(valor.includes('DESCRIÇÃO')) posDescricao=j;
-          if(valor.includes('DT. AQUISIÇÃO')) posDataAquisicao=j;
-          if(valor.includes('Nº DE SÉRIE') || valor.includes('N° DE SÉRIE')) posNumeroSerie=j;
-          if(valor==='SITUAÇÃO') posSituacao=j;
-          if(valor.includes('ÚLTIMO INVENTÁRIO')) posUltimoInventario=j;
-          if(valor.includes('VALOR UNIT.')) posValorUnitario=j;
         }
 
         if(posPatrimonial!==-1){
@@ -532,11 +400,6 @@
           const patrimonio=String(row[posPatrimonial]||'').trim();
           const antigo=posAntigo!==-1 && row.length>posAntigo?String(row[posAntigo]||'').trim():'';
           const descricao=posDescricao!==-1 && row.length>posDescricao?String(row[posDescricao]||'').trim():'';
-          const dataAquisicao=posDataAquisicao!==-1?formatarDataPlanilha(row[posDataAquisicao]):'';
-          const numeroSerie=posNumeroSerie!==-1?String(row[posNumeroSerie]||'').trim():'';
-          const situacaoBem=posSituacao!==-1?String(row[posSituacao]||'').trim():'';
-          const ultimoInventario=posUltimoInventario!==-1?String(row[posUltimoInventario]||'').trim():'';
-          const valorUnitario=posValorUnitario!==-1?formatarValorPlanilha(row[posValorUnitario]):'';
 
           if(patrimonio.includes('QUANTIDADE') || patrimonio.includes('TOTAL GERAL'))break;
           if(patrimonio && /^\d{6,12}$/.test(patrimonio)){
@@ -544,15 +407,9 @@
               patrimonio:normalize(patrimonio),
               antigo:normalize(antigo),
               descricao:normalize(descricao)||'Não informado',
-              unidade,
               centroCusto,
               setor:dependencia,
               localizacao,
-              dataAquisicao,
-              numeroSerie:normalize(numeroSerie),
-              situacaoBem:normalize(situacaoBem),
-              ultimoInventario:normalize(ultimoInventario),
-              valorUnitario,
               status:'nao-localizado',
               dataHora:'',
               observacao:'',
@@ -577,7 +434,6 @@
               patrimonio:normalize(patrimonio),
               antigo:normalize(antigo),
               descricao:normalize(descricao)||'Não informado',
-              unidade,
               centroCusto,
               setor:dependencia,
               localizacao,
@@ -599,9 +455,6 @@
       if(!file) return;
 
       els.uploadError.style.display='none';
-      els.uploadWarning.style.display='none';
-      ultimaAcao=null;
-      els.btnDesfazer.disabled=true;
 
       try{
         if(dadosPlanilha.length>0){
@@ -637,14 +490,6 @@
 
         if(dadosTodasAbas.length===0)throw new Error('Nenhuma aba com dados patrimoniais válidos foi encontrada.');
 
-        const conflitosAbas=detectarConflitosAbas(dadosTodasAbas);
-        if(conflitosAbas.length){
-          els.uploadWarning.innerHTML='⚠️ Números duplicados entre abas (o registro mais recente sobrepõe o anterior):<br>'+conflitosAbas.map(c=>escapeHtml(c)).join('<br>');
-          els.uploadWarning.style.display='block';
-        }else{
-          els.uploadWarning.style.display='none';
-        }
-
         dadosPlanilha=manterProgressoExistente(dadosTodasAbas,dadosPlanilha);
         garantirCamposAuxiliares();
         reconstruirIndice();
@@ -654,12 +499,11 @@
         atualizarResumoVisual();
         els.tabelaContainer.classList.remove('d-none');
         els.btnExport.disabled=false;
-        els.btnPdf.disabled=false;
-        els.btnImprimirLista.disabled=false;
+        els.dashboard.style.display='flex';
         salvarDados();
 
         const msgErros=errosAbas.length?` (${errosAbas.length} aba(s) sem lista válida foram ignoradas)`:'';
-        mostrarFeedback(`Planilha carregada: ${dadosPlanilha.length} itens em ${wb.SheetNames.length-errosAbas.length} aba(s)${msgErros}`,'info',false);
+        mostrarFeedback(`Planilha carregada: ${dadosPlanilha.length} itens em ${wb.SheetNames.length-errosAbas.length} aba(s)${msgErros}`,'info');
       }catch(error){
         els.uploadError.textContent=`Erro: ${error.message}`;
         els.uploadError.style.display='block';
@@ -693,23 +537,8 @@
       const numero=normalizeWithZeroTrim(num);
       if(!numero)return;
 
-      const validacao=validarFormatoNumero(numero);
-      if(!validacao.valido){
-        mostrarFeedback(`Leitura inválida: ${validacao.motivo}`,'warning','fora');
-        registrarAuditoria({numero,tipo:'invalido',detalhe:validacao.motivo});
-        return;
-      }
-
-      const agora=Date.now();
-      if(ultimoScanBruto.numero===numero && (agora-ultimoScanBruto.timestamp)<COOLDOWN_LEITURA_DUPLICADA_MS){
-        // Provável eco/duplo-bipe do scanner para a mesma leitura: ignora silenciosamente
-        return;
-      }
-      ultimoScanBruto={numero,timestamp:agora};
-
       if(processedSet.has(numero)){
-        mostrarFeedback('Item já processado','info','ja-processado');
-        registrarAuditoria({numero,tipo:'ja-processado',detalhe:'Bloqueado - já processado nesta sessão'});
+        mostrarFeedback('Item já processado','info');
         return;
       }
 
@@ -718,104 +547,44 @@
 
       if(achado){
         const encontrado=achado.item;
-        const statusAnterior=encontrado.status;
-        const dataHoraAnterior=encontrado.dataHora;
-        const conferenteAnterior=encontrado.conferente;
-        const nomeConferente=conferenteAtual.trim()||'Não informado';
         if(encontrado.status==='localizado'||encontrado.status==='antigo'){
           encontrado.dataHora=dataHora;
-          encontrado.conferente=nomeConferente;
-          mostrarFeedback('Item já localizado anteriormente','info','ja-processado');
-          registrarAuditoria({numero,tipo:'ja-processado',detalhe:`Relido - já estava "${statusAnterior}"`});
+          mostrarFeedback('Item já localizado anteriormente','info');
         }else if(achado.tipo==='patrimonio'){
           encontrado.status='localizado';
           encontrado.dataHora=dataHora;
-          encontrado.conferente=nomeConferente;
-          mostrarFeedback('Patrimônio localizado!','success','novo');
-          registrarAuditoria({numero,tipo:'localizado'});
+          mostrarFeedback('Patrimônio localizado!');
         }else{
           encontrado.status='antigo';
           encontrado.dataHora=dataHora;
-          encontrado.conferente=nomeConferente;
-          mostrarFeedback('Etiqueta antiga localizada!','info','novo');
-          registrarAuditoria({numero,tipo:'antigo'});
+          mostrarFeedback('Etiqueta antiga localizada!','info');
         }
-        ultimaAcao={tipo:'planilha',uid:encontrado.uid,numero,statusAnterior,dataHoraAnterior,conferenteAnterior};
       }else{
-        const tipoNumero=classificarNumeroFora(numero);
-        const fora={uid:`fora-${Date.now()}-${numero}`,numero,tipoNumero,dataHora,status:'fora',observacao:'',imprimirEtiqueta:false,conferente:conferenteAtual.trim()||'Não informado'};
+        const fora={uid:`fora-${Date.now()}-${numero}`,numero,dataHora,status:'fora',observacao:'',imprimirEtiqueta:false};
         foraDaLista.push(fora);
-        mostrarFeedback('Item fora da lista original','warning','fora');
-        registrarAuditoria({numero,tipo:'fora'});
-        ultimaAcao={tipo:'fora',uid:fora.uid,numero};
+        mostrarFeedback('Item fora da lista original','warning');
       }
 
       processedSet.add(numero);
       atualizarTabela();
       atualizarResumoVisual();
       salvarDados();
-      els.btnDesfazer.disabled=false;
     }
 
-    function desfazerUltimaLeitura(){
-      if(!ultimaAcao){
-        mostrarFeedback('Não há leitura para desfazer','info',false);
-        return;
-      }
-
-      if(ultimaAcao.tipo==='fora'){
-        foraDaLista=foraDaLista.filter(f=>f.uid!==ultimaAcao.uid);
-      }else if(ultimaAcao.tipo==='planilha'){
-        const item=dadosPlanilha.find(d=>d.uid===ultimaAcao.uid);
-        if(item){
-          item.status=ultimaAcao.statusAnterior;
-          item.dataHora=ultimaAcao.dataHoraAnterior;
-        }
-      }
-
-      registrarAuditoria({numero:ultimaAcao.numero,tipo:'desfeito',detalhe:`Leitura de tipo "${ultimaAcao.tipo}" revertida`});
-      processedSet.delete(ultimaAcao.numero);
-      ultimoScanBruto={numero:null,timestamp:0};
-      ultimaAcao=null;
-      els.btnDesfazer.disabled=true;
-
-      atualizarTabela();
-      atualizarResumoVisual();
-      salvarDados();
-      mostrarFeedback('Última leitura desfeita','info',false);
-    }
-
-    els.btnDesfazer.addEventListener('click',desfazerUltimaLeitura);
-
-    function itemPassaFiltros(i){
+    function atualizarTabela(){
       const filtroCentro=els.filtroCentro.value;
       const filtroSetor=els.filtroSetor.value;
       const filtroStatus=els.filtroStatus.value;
       const filtroTexto=normalize(els.filtroTexto.value);
-      const centroMatch=!filtroCentro||i.centroCusto===filtroCentro;
-      const setorMatch=!filtroSetor||i.setor===filtroSetor;
-      const statusMatch=!filtroStatus||i.status===filtroStatus;
-      const textoBase=`${i.patrimonio||''} ${i.antigo||''} ${i.descricao||''} ${i.centroCusto||''} ${i.setor||''} ${i.localizacao||''} ${i.observacao||''}`;
-      const textoMatch=!filtroTexto||normalize(textoBase).includes(filtroTexto);
-      return centroMatch&&setorMatch&&statusMatch&&textoMatch;
-    }
-
-    function obterItensFiltrados(){
-      const todos=[
-        ...dadosPlanilha.map(i=>({...i})),
-        ...foraDaLista.map(f=>{
-          const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
-          return {...f,patrimonio:tipoNumero==='novo'?f.numero:'',antigo:tipoNumero==='antigo'?f.numero:'',descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-'};
-        })
-      ];
-      return todos.filter(itemPassaFiltros);
-    }
-
-    function atualizarTabela(){
       const fragment=document.createDocumentFragment();
 
       const renderItem=(i,fora=false)=>{
-        if(!itemPassaFiltros(i))return;
+        const centroMatch=!filtroCentro||i.centroCusto===filtroCentro;
+        const setorMatch=!filtroSetor||i.setor===filtroSetor;
+        const statusMatch=!filtroStatus||i.status===filtroStatus;
+        const textoBase=`${i.patrimonio||''} ${i.antigo||''} ${i.descricao||''} ${i.centroCusto||''} ${i.setor||''} ${i.localizacao||''} ${i.observacao||''}`;
+        const textoMatch=!filtroTexto||normalize(textoBase).includes(filtroTexto);
+        if(!(centroMatch&&setorMatch&&statusMatch&&textoMatch))return;
 
         const statusLabel={localizado:'Localizado',antigo:'Etiqueta Antiga',fora:'Fora da Lista','nao-localizado':'Não Localizado'}[i.status]||i.status;
         const tr=document.createElement('tr');
@@ -838,19 +607,13 @@
       };
 
       for(const i of dadosPlanilha)renderItem(i,false);
-      for(const f of foraDaLista){
-        const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
-        renderItem({
-          ...f,
-          patrimonio:tipoNumero==='novo'?f.numero:'',
-          antigo:tipoNumero==='antigo'?f.numero:'',
-          descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-'
-        },true);
-      }
+      for(const f of foraDaLista)renderItem({
+        ...f,
+        patrimonio:'',antigo:f.numero,descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-'
+      },true);
 
       els.tabelaBody.replaceChildren(fragment);
       atualizarIndicacaoFiltros();
-      atualizarBotaoEtiquetas();
     }
 
     function escapeHtml(valor){
@@ -867,125 +630,7 @@
       if(!item)return;
       if(alvo.dataset.action==='etiqueta')item.imprimirEtiqueta=alvo.checked;
       salvarDados();
-      atualizarBotaoEtiquetas();
     });
-
-    function obterEtiquetasSelecionadas(){
-      const etiquetas=[];
-      const adicionar=item=>{
-        if(!item.imprimirEtiqueta)return;
-        const patrimonio=String(item.patrimonio||'').replace(/\D/g,'');
-        if(!patrimonio)return;
-        etiquetas.push(patrimonio.padStart(9,'0'));
-      };
-      dadosPlanilha.forEach(adicionar);
-      foraDaLista.forEach(item=>{
-        const tipo=item.tipoNumero||classificarNumeroFora(item.numero);
-        if(tipo==='novo')adicionar({...item,patrimonio:item.numero});
-      });
-      return etiquetas;
-    }
-
-    function atualizarBotaoEtiquetas(){
-      const total=obterEtiquetasSelecionadas().length;
-      els.btnImprimirEtiquetas.textContent=`🖨️ Imprimir etiquetas selecionadas (${total})`;
-      els.btnImprimirEtiquetas.disabled=total===0;
-    }
-
-    function imprimirEtiquetasSelecionadas(){
-      const patrimonios=obterEtiquetasSelecionadas();
-      if(!patrimonios.length){
-        mostrarFeedback('Nenhum item com patrimônio novo foi selecionado para impressão','warning',false);
-        return;
-      }
-      if(typeof JsBarcode!=='function'){
-        mostrarFeedback('Não foi possível carregar o gerador de código de barras','warning',false);
-        return;
-      }
-
-      const etiquetas=patrimonios.map(patrimonio=>{
-        const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
-        JsBarcode(svg,patrimonio,{format:'CODE128',displayValue:false,margin:0,width:2,height:52});
-        svg.setAttribute('preserveAspectRatio','none');
-        return `<section class="etiqueta"><div class="titulo">Defensoria Pública RS</div><div class="separador"></div><div class="codigo">${svg.outerHTML}</div><div class="patrimonio">${patrimonio}</div></section>`;
-      }).join('');
-
-      const janela=window.open('','_blank','width=720,height=720');
-      if(!janela){
-        mostrarFeedback('Permita pop-ups no navegador para imprimir as etiquetas','warning',false);
-        return;
-      }
-      janela.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Etiquetas patrimoniais</title><style>
-        @page{size:40mm 20mm;margin:0}
-        *{box-sizing:border-box}
-        html,body{margin:0;padding:0;background:#fff;font-family:Arial,Helvetica,sans-serif}
-        .etiqueta{width:40mm;height:20mm;padding:.45mm 0 .15mm;overflow:hidden;page-break-after:always;break-after:page;color:#000;background:#fff}
-        .etiqueta:last-child{page-break-after:auto;break-after:auto}
-        .titulo{height:5.1mm;display:flex;align-items:flex-end;justify-content:center;padding:0 .5mm .25mm;font-family:Arial,Helvetica,sans-serif;font-size:10pt;font-weight:700;line-height:.9;letter-spacing:0;white-space:nowrap}
-        .separador{height:.3mm;background:#000;width:100%;margin:0 0 .35mm}
-        .codigo{height:6.1mm;width:calc(100% - 1.2mm);margin:0 .6mm;display:flex;align-items:stretch;justify-content:stretch;overflow:hidden}
-        .codigo svg{display:block;width:100%!important;min-width:100%!important;height:6.1mm!important}
-        .patrimonio{height:7.55mm;display:flex;align-items:center;justify-content:center;padding-bottom:.2mm;font-family:Arial,Helvetica,sans-serif;font-size:20pt;font-weight:700;line-height:.9;letter-spacing:.15mm;white-space:nowrap}
-        @media screen{body{background:#ddd}.etiqueta{margin:8mm auto;box-shadow:0 0 2mm rgba(0,0,0,.25)}}
-        @media print{body{background:#fff}.etiqueta{margin:0;box-shadow:none}}
-      </style></head><body>${etiquetas}<script>window.onload=()=>{setTimeout(()=>window.print(),250)}<\/script></body></html>`);
-      janela.document.close();
-    }
-
-    function imprimirListaFiltrada(){
-      const itens=obterItensFiltrados();
-      if(itens.length===0){
-        mostrarFeedback('Nenhum item para imprimir com os filtros atuais','warning',false);
-        return;
-      }
-
-      const statusLabel={localizado:'Localizado',antigo:'Etiqueta Antiga',fora:'Fora da Lista','nao-localizado':'Não Localizado'};
-      const linhas=itens.map(i=>`
-        <tr>
-          <td>${escapeHtml(i.patrimonio||'-')}</td>
-          <td>${escapeHtml(i.antigo||'-')}</td>
-          <td>${escapeHtml(i.descricao||'-')}</td>
-          <td>${escapeHtml(statusLabel[i.status]||i.status||'-')}</td>
-          <td>${escapeHtml(i.observacao||'-')}</td>
-          <td>${escapeHtml(i.dataHora||'-')}</td>
-        </tr>`).join('');
-
-      const filtrosAtivos=[];
-      if(els.filtroCentro.value)filtrosAtivos.push(`Centro de Custo: ${els.filtroCentro.value}`);
-      if(els.filtroSetor.value)filtrosAtivos.push(`Setor: ${els.filtroSetor.value}`);
-      if(els.filtroStatus.value)filtrosAtivos.push(`Status: ${statusLabel[els.filtroStatus.value]||els.filtroStatus.value}`);
-      if(els.filtroTexto.value.trim())filtrosAtivos.push(`Busca: "${els.filtroTexto.value.trim()}"`);
-      const resumoFiltros=filtrosAtivos.length?filtrosAtivos.join(' • '):'Nenhum filtro aplicado (lista completa)';
-
-      const janela=window.open('','_blank','width=900,height=700');
-      if(!janela){
-        mostrarFeedback('Permita pop-ups no navegador para imprimir a lista','warning',false);
-        return;
-      }
-      janela.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Lista de Inventário</title><style>
-        @page{size:A4 landscape;margin:12mm}
-        *{box-sizing:border-box}
-        body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:0}
-        header{text-align:center;margin-bottom:10px}
-        header h1{font-size:16pt;margin:0 0 2px}
-        header p{font-size:9pt;margin:0;color:#444}
-        table{width:100%;border-collapse:collapse;font-size:9pt}
-        th,td{border:1px solid #999;padding:4px 6px;text-align:left;word-break:break-word}
-        thead th{background:#eee}
-      </style></head><body>
-        <header>
-          <h1>Defensoria Pública RS — Lista de Inventário Patrimonial</h1>
-          <p>${escapeHtml(resumoFiltros)}</p>
-          <p>Gerado em ${escapeHtml(new Date().toLocaleString('pt-BR'))} • ${itens.length} item(ns)</p>
-        </header>
-        <table>
-          <thead><tr><th>Registro Patrimonial</th><th>Registro Antigo</th><th>Descrição</th><th>Status</th><th>Observação</th><th>Data/Hora</th></tr></thead>
-          <tbody>${linhas}</tbody>
-        </table>
-      <script>window.onload=()=>{setTimeout(()=>window.print(),250)}<\/script>
-      </body></html>`);
-      janela.document.close();
-    }
 
     els.tabelaBody.addEventListener('input',e=>{
       if(e.target.dataset.action!=='observacao')return;
@@ -1008,6 +653,13 @@
       document.getElementById('total-centros').innerText=stats.centros;
     }
 
+    function atualizarDashboard(stats=estatisticasCache){
+      document.getElementById('metric-total').innerText=stats.total;
+      document.getElementById('metric-localizados').innerText=stats.processados;
+      document.getElementById('metric-conclusao').innerText=stats.percentual+'%';
+      document.getElementById('metric-centros').innerText=stats.centros;
+    }
+
     function atualizarProgresso(stats=estatisticasCache){
       const percentual=stats.percentual;
       els.progressBar.style.width=`${percentual}%`;
@@ -1020,6 +672,7 @@
     function atualizarResumoVisual(){
       const stats=calcularEstatisticas();
       atualizarContadores(stats);
+      atualizarDashboard(stats);
       atualizarProgresso(stats);
     }
 
@@ -1028,112 +681,9 @@
         dadosPlanilha,
         foraDaLista,
         processedSet:Array.from(processedSet),
-        historicoAuditoria,
         timestamp:new Date().toISOString()
       };
       localStorage.setItem('inventarioDados',JSON.stringify(dadosSalvar));
-    }
-
-    const BRASAO_DPE='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBhMSEBUUExIWFRUVGB0YGBYXGBcYFxoYHxgYGR0ZGBcXHSYgGRsjGRgaIC8gIycpLSwsGB8xNTAqNSYrLCkBCQoKDgwOGg8PGi0kHyIqMCw1LTUsKS0uLC8tLCosKiwsLCwsLCwsLiotLy8sLSwsNC4sLSwsLCktLywtLCwxLP/AABEIAQMAwwMBIgACEQEDEQH/xAAcAAACAwEBAQEAAAAAAAAAAAAABgQFBwMCAQj/xABNEAACAQIDBQQGBgYHBQgDAAABAgMAEQQSIQUGEzFBIlFhcQcyQoGRoRQjUnKxwTNigpKisiRDU3Oz0eEVNJPC8AgWJTVjw9LxVKPT/8QAGwEBAAIDAQEAAAAAAAAAAAAAAAQFAQIDBgf/xAA5EQABAwIEAwYEBAUFAQAAAAABAAIRAyEEEjFBBVFhEyJxgaHwMpGx0RQVI8EGM1Jy4TVCYrLxJf/aAAwDAQACEQMRAD8A3GiiiiIooooiKKKKIiiiiiIooqFhMeWmmjIAMZUjxRkBBP7Yce4URTaKKKIqDczHcWKc/ZxeJX3Cd7fI1f0pejj9BL+tKJP+JDE/4k021pTeHtDhuskQYRRXiaUKpZjYKCSe4AXPyrls/EGSGN2Fi6KxHcSoJHzrdYUiiiiiIooooiKKKKIiiiiiIooooiKKKKIil7fVpo4VxEEmRoHDvcFkaI9lw6g6qAQ+moyaUw14miDqVYAqwIIPIg6EH3VgiRCKu2Nt1Z7qRw5kHbiJuR+sp9uM9GHkQCCBaVjW0YMTHNHEY3zRKOGjOC8kWdJOHLNFYaCBTZQXOosQcx03drFzSxs8o7Ltni1U9hgCACh7Si+jGxPUDrEw1dzxkqfGNYmOh8D9ZGxXR7QLjRW7GwvXjDzq6K6m6sAykciCLg/CulUG7UvDkxGFP9TJnj8YZbutvBX4kflGKmLmr+qNmKbTXunwx/ehkBA88uIb4eFXlUu3uzNhJPsy5D5SIy/iBWCYRXVcMdNkidvsqx+AJrvVDt/bioTA8TnigopzKufMLER63LC9rWvf3Uc4NElZAlQdxUyZ07osOf8A9bJ/7dNlZ5ultaSIOZV4sjMIQQyxgrHcKMsgW8pZ2LW0uwA0FPuEmLorMhjJGqMVJHgSpI+dQsAHNw7WO1A6rep8RIVXvlMRgZgOcgEK/eldYRbxu9XKrYWHIVSbx9uXCRfanEh8o1L/AM2U+6rypsrmioLYstiRGp0RM7/tEqg9+Vz+yO+pjuACSbAak1TbqqzRPiHFmxLmUDuj0SJf+Eqk+LNWUV3XLE4lY0Z3YKqglmJsABqSTXQ1le9pxV445SCYrs7KQXbilgIzewaM5X7C5SFVW0KgNxrVhSEn3yHnstmtzJxwG2JsRjQF+rw6RlipW0jsxyxl7+oCBIQvPsgtb1QyUt7jRScBpJlQSSkOSj5xYouVbZRkyjTLr35iSTTJSh2nZjtYzbxp4Dw0R0TZFFFFdlqiiiiiIpY3x2zicG0M8arJAWEc0bHLlzGySLJbs9o5TmuO0vq6mmeuOMwiSxtHIoZHUqynkVIsQfdWDMWRQdl7xQzqbExsrBGjkGR1c8lIOhv0Kkg9CatKxSbZWKjxS3xAVlCGNzIkqQlTMoWVil5JbM63IsvEJ7WgDZuZvdhY0lhzm8QeQ6DhqEUF1Q52J5F8xsGzEiolLEy7sn/ENY08pve/hHhPRzLSNEtekzaMeHkbC4fQtaSU9kcMk5wkeUAqxPaLElgMoBAOlt6G98hLCMHIbNHfgk+1GPY80H8P3TWVbYx7zNJK/rzMWPmx5DwA0HkK+QYxsPlkjYq0ZDKw5hhyNvPmOtzWGuDXd0W9/vdUn413a5tRMeS/UlUG2YuFjMPiRoGvhpfuuQ0ZP3ZRbykave5286Y7CrKLB/VkT7L2Fx5G4I8CPGp+2cDxsPJH1ZTb73NT8QKmaiytwQbhTapt7YicKxHrKVYeYcfkTXHd7etMQwiKusgjDksAFbkG4ZvdgCRrYDtC19bXc8CupVgCrAgg8iDzFYs9tlnQqJsjbcOJUtDIHynK1vZawNj42NV+3d1hiJGdpCFMRRlyqe0CSjAsCLDM11tYnL3G8DYWIgw+0JsMDZ31F8xuAOJYuebATNpe9lHQU1zHsnyP4VyAbWZD276HodfSQsnumxWT7hbKXaMeIZi8PYhjshU3PBALMWUl720BJA5+sb1rdZp6EF/o8/3o/wDBWnvb+NWLDSMzhLrlDMQBmbsrqfEitaNNlKnLRFvp9V3xDYqlg2KpsBtSPF45JInzxxRuA1iBnzZHAuB0Zaaapd1dmxxwI6D9Ioa9ybISWRVuSFVVbQLYfGrHaW0EgheWQ2VFLG3PyA6knQDvNdaZJbmdabrg7WAq7efEnhrAp7eIPDHeE0zt7gfnVvFGFUKosAAAO4DQClfYUzYrFnEPG0YSNQqPlLKWB5lCVvrIdDqrRmmussOa4WDayr9vbbjwmHeeU9lByHNmOiqviTYDzr8+w71SNj2xkyh2LHPH0MTLlKJ9khCQrDW/mb3npM3y+l4oRRm+HhJCkHR5OTP4gC6r+0faFJmW0l+8fh/91wq1LwFUYrFEPysOi/TOw8JCkIaHVJfrc/MvmAsxPXshR5AV3xW04oyBJKiEhiAzAEhVzta/cvaPcNazv0db7xRbOdJmN8MbKBqzRuSUtfTQ5l1sAFW/OqDachmibgyyPGpZ3I7BMrBU4pW7XOZguV3yuGkKraz0dWZSaABaNBFvL3EK2pntWh43T/i94Z8TJHDhPqlc3aZ17fCFszxxt6t7hVZxqW9WwvTaKXNydmGOFmeWOeVjZp42Zg4W9hYsQlmLDKvZvc2F7Ux10oioG/qkT008AtnRNkUUUV2WqKKKKIlzebYUQw+ImT6qTIzl1v0s7HL6t2CBWNrkaG40rAsJtKVFlCEok6qHSwN00YKCblQPV0PLTy3T0p4wx7JxFjYuFj9zuqn+EtWEycx90fiah1oa4ELNeRg6rwbjL6lRpjdlHjc+7/7r7itco72Hy1/KujJrfqK8O12XzPu0/wBRXFeVG0bJm3I3qOBxIc3MT2WVR9nowH2lJJ8QWHWv0BDKGUMpDKwBBBuCDqCD1BFflrEvZGPcK1T0P722UYGZrkC8LH4tH7tWXwzDoKkUX7FWeArwOzcfBMe+BbCyxYmCDOcxzhQRchWtfKp7Tqzpc6XyXOgBcFa4B76443DCSNlJtcaHuPMH3EA+6s8PpVWOPhQwmaVTkBvaEdAM4uXsez2QQcvMXrpTY7ti1rbOE+YgGeVo+RVtUe1rMzjEJo2jhkjx8MwVQzjIzADMRqlieZ7Ukf7oq42likSJyzKoynViB0PfWHbc25i8TLbFTOtmtw0BiRNRfsqczWsPWY8qlT7owrLGGBOaXhksEJYfaBGbLrbRtda7Ootwxms+M8uAF7Bonp1135KH+NFT+W0nLY7am3X0TH6E8ZGMNKOImYullzLf9CnS9+dM+/kCywxxEAl5BlvzBsQrA8wRIyajvrLItgQMI0aO7yRGTP2cq2Dm2XLqOzYm/M+FRsFsqVSHV2gEYVw5Z1UXYFSFsQ12UEDKR2fCtnYdjqbmNfEWvaQSW2iTcggDWdrhbP4lnq53MN72vFpvMfZb5gsEkMaRxqERFCqo5BQLAClrevaMjYmHCpExVypaRSdLll5BSOwoaS5I9UWudKWtn+k3E4dsmKjWdQAeJFZXymxDZfUe4I5ZPK9NW6G1Y8Y0mJQ31yBToy6AkMvMG2Ufski4N64Ymm6GsIlrt9oidRz081IoVmPktNxtvPgmDBYGOFMkUaxr9lFCj4Ckj0rb5/RoRhomtNOLEjmkWoLeBaxUftHpTbvBtyPB4d55OSjRerMdFVfEnTw58hX5w29tJ8RMZ5Td3cMbch0CjuUCwHkKVH5RCjYqv2bco1Kjyi2W3Qj4cq+Tm2U9zfiCK+4k9g0EZ+nZ/H/T8fxhBULdJK6JjZEDmN2TNGyEqbFlYaqf1TYedvjpvog2Ys0eJ4rs+VlQqS1z2I3V2a98ylbKRYqF0rMW5Vo/ocxuXG4mLpJGsg80cqflIPhW9OHOAPVej4W3NhKj+Tm/v+61jC4RIkCIoVV5AfH3knUk8ya7UUVPXZFFFFERRRRRFn3ptmts5Be2edRry0SRrn3gVjznUfdH4tWsem6T+j4Ze+Vj8ImH/NWRo4PqggKAuotqLn86hV/iXOvWaMJXpnXub3PeO3RA9Y+A/wCvyr48dyD1FfIHvm8GI+AAr7xO1l8L/O1cl5i4K8ysCvvAt7xUiLEGNg6sVZCGDDQqQbgg+BF64TQ5vMWPw11qdsfZpnbMbKiakt6osbZja9wDoAOZ91dqNLtHRMDc8ve3M2W7RMEJv2nvri9pRCIIIkyXeND2pSB2r3sQh58MXNr3J5Vwm2cEKskYWOILJxiWs47Og9kG5NlFuRHSifZyQlWkYwNHztc8TKbZ4ifaJtcHle/hTduxuCZj9IxqWDHMuF1C/elXlc88nIX1+ytp2zTBou7kde8dDcHK62mobNxMRPFKpWce01+nlEi+uhMawlw7On2ix+j4a6BiFxDMVUpc6MzDt+GUHLypkw3o0xDEtLjcrMQzCKP2ltY5mYai3PKK0FEAAAFgNAByA7hXquLSGMFNo7o035HUzuAbQJEwrAYZklzrk+XoEhP6LSIyiY+YKeasqFdefZXL+NVM24GMwwbJkxUdwcqsYpAVJKlQxIuLn2uvKtTorJeS0tOhMnqec6z11WThqZIMaLGMHtFc8qmNo5TmkkjsEPZ9WHI69oMtybjUnwqEsGIwrtiomGHcEfV3JJViSEdPaTQ6NY6Eix1rXN4d1oMYgEi2dfUlXSRD+q3df2TcHurM8bs2XDyphMSC/bzQsL8OW5VRck3ULckpqbtzsQx1ZFIl1MWMZhqco5SY0honQXkQVErUXNgzpodIJ528+ukaKh3x33lx7orpwliH6MG4LkWaQGwuPZHcL9SaWMV6p8x+Ipu3m2JxWkeIXKMxJUARoNLJcescouwHL3XpSU5uYtY2I8R3+FRKzQQKrdDtu06wf2O4uoFfMamZ+3u3uxsV9tm58u7v/wBKI3uzDuI/AGvdc4Rq/n+QqOo8yCvTnQ+Rpw9GOJA2xGARqkin4F/+WkuYktYfZb8gKYvRw4TamFIvYyMO1z7UMi6+81vTHeBV5w7Ednhn07d5zd777eXqv0RRRRU9TkUUUURFFFFEWWem+cf0ROt5X9wEa/8AN8qynDG+Y97H8q0H0zz3x8S/Yw4PvaR//gKz7CeoPHX51CrHvFUOOP6h8vuvOEHreLsa+qv1pP6o/E0YT1fe38xr5EfrH/Z/CufNRTq5dipYhRzbr3Dqfh8yKeNkYQxleGrR5tY5ARJEQADw5QNBax15jnbrS7uxh1MpkdSyKQDYZtL2F1uLgyEAjqBTBLhGnxMUMEoAxGVGMfZGgvI7xC2WyhiARrl8asWUv0+x0zNJJIJHRvImO9DpkHTcd6LcsO6i2/jzjaRoZ8Dc7uYVHQ46cLFFFm+jRsSQ02paTW5chxpoTdSfZU1O3H32lnxkvH+oiMSZYnkVxxQ1naN7XCkEdljcnlyNrzevdSN8NGqHIsChFW2ZcpyraxPMaa6/hZcwm4EZlRRKwuCLlQ2gsdNRYm1r916gYjHMpV20I+LQXPr9Sbk3K9HRoAU55a+/caLT6K8QxZVCi9lAGup0FtTSt6Rt6/oeFyobTTXVO9R7T+4HTxI8anEwJK5veGNLjsmiDEq4zIwYXIupBFwSpFx1DAj3V0rHfRRvSYZjhZSQkxul/Zkty16OLe8D7VbFWrHh4kLSjVFRuYJd313kGEw7FMrS6ZYixUsL66jVRYHtHS4tfWlXdiYbTwk8OLkyu0zPh1ZlaSFbXXK4AEmU5tB7JsdDVzvjukk0ySM5GchSLA2KqXBUn1fUAPmdReomwdyI1xWcSN9Xkk1AzE3YAZuijhjTXmeVRzistcUhrqpXZgskpYgRxJw5FKzYYcMguq4dSRlEluZzAg2A7Vx32pS3i2VwHDqcyNoWsV1Bym4PIq2h8CDWp+k3ZWXLilGhHAn0veNj2HtcXKubDXmw7qTtu7KXgAlGzP2meWQZipFgoXS7HmQAbWGt6ltyioKbjDandAtqJMyTsST3ecQSZFHiKUA2mL+Rtt0G/KZEJLrjhvbv9o/kPwrqnUHmpKnzH+fP31xwfInvYn52/Kq5zS0kHZVkQCvaWzN4WH51Y7ly5cZhGP8A+TH/ABShf+aq3DG4J7yT87flXTYs2RoW+zKjfCUH8qy2x8wu1Iw8f3BfqUUUUVYL0iKKKKIiiiiiLB/S5N/4nL+rFGP4Wb/mpPhWyAeA/CmX0ryX2ji7dAgHuhjP4k0u30qBU+Irz2KvVMc/sueEN0U94+fj40IpBkYC9hc+QHWp+y9mFkBfQd3U68z3eVdJkCxyKBYGVVt70ve/PS9GNzPy8zHqryhwKoKbq+I7rYJjcxfy08eiYt1MLJHCCI1k1DZczLJdDYup9WwZ79rqL9Kb/RzgQ+KmlAsuHRYI7kN2m7chzLoTy1H2zSJhttuiZCqOlrZXUHQtmtmFmtm15861L0W4XLs8N1lkkc+5zGP4YxVxXwtSlUfUqAXMCCdBpN4BAEabm5FhW4Gq2qWhuwk6anXy89tFe7f/AN3bzX+daqsAf6RF5t/I3+VWu8H6A/eT/ESqnA/7xF5t/hvXjuIn/wCnh/e5Xo6X8lyYsXilijaR2CogLMTyAAuTWB7T3lGL2hxp1UxMwQI+ayRX/VN81rtp1JrRd7d5Fk2hhsAtmUyoZwQCD1WMg6EcmI+7417x2Kwwnnw8OzI5JYYy/wChiyk5VKiwFzcta2nLx09BWZ2zS2YVU8Gq4BpFj8zyWcb3bWw8zo+HUAnVmsyyArZV0vYDKFIIHTpYitc3D3oGNwoZj9bH2JR+t0a3cw187jpStu0/1Mj4rAwAmQLGXw8cY9V83JdQpT58zXXa280GElwWJw8aJBNxUlCIqZkDIuayjUqQWF9bEjS5rhhMOMNTDQTHXVb1mPo1nPqOG0xp4j905be/qf7w/wCFJXPYv6aX7kf801etsyhuAVIILEgjUEcN7EH3152L+mk+4n80v+dRXf6i3+37qeP5J8VN2zs1cRh5YW5SIVv3XGh8wbH3VkOzXQopKGSSyxyIEaSS4duJzFgCLKCDce6trrGN48ccPisTCM1uNI9gSFKzRKxvbqGe499XRo1K47OnM66xp76eKqsU5rAHu2tpOqR9oQlJnBUjs3ItqCpym/8ADUSE5Ywe4X/OrjamMLzCQgAsrqe4nhg395S/vrxtHZ6LASosVXp16aj865Y9hbWOYQTBPiRf1WcJwf8AGYTtqDriZB3jSPJVOCB4S355b/EXr1h07CjyH8QFdp4ymjCxtfwI7wetcVJEd+oW/vAv+NQgbyqd7H0quWoIIdcL9UiiuWFnDorjkyhviL/nXWrFejRRRRREUUUGiL87b9K0mPxhAuOKVJ6C2Vfy6UYbAKg7z3/5DpUnedryYs/+vMb+U76/AV9BquebnxK9NwzhdCj+tEuIDpO08vvqouy5s0KMeZGvnUGdTxcp0DTK1zytwT+a1M2SgWKw1AZhrr7R69fOo2PQCZT9oj5JKPzHyqRhBOIaP+Q+q68Vn8uef+J/6lMeK3UZMOspePmSxzjLl0y5T7ROvLvFaluCltmYXxiB+Nz+dY7NtqV04bNdLKAttFy8svcfxvrWwej+S+zMN4R5f3SV/KrSrTxbKQGKcHHMYjkYIHlceAC+fYF1B1R3YggQNed1P3g/QH78f+KlLG1dqNhk4yoXaMOwXx4b6n9Ucz4A0ybyzBYNTa7x290iE/IE+QNUuCxUbTxKSCCxBBBsbxuLG4tqTbxvXiuJT+Z4f3uV6Gn/ACXhZVujiGk2pA7ks7TBmJ5liSST5mm3YOI+j4vOyS5g6wjDt6waRm5yWtIqrfLoD2hyGpr23YOB25h0A+qeUPEf1b+rfvU6eVj1p921sPDwSDExoFxDP2bFiWc3vkiBszkE9Lcyepr0dLuNdOypMJTcAWnXN9lR71TCTDQwBc7FncoLKcnEaMOrk9khmHPS2a+gNK2/cLrhsKXljkLNLYQkGKNQIVEaZdNLG/ievOmrY2z4sVJGMZGBdGSMXdA5DZmAZW7TK3EupPS4BGtQfSzssAYGCCPrIiIveTEAPeTzPnXNji/DgkXgLtjWHI6PdwvHo9268sCwOCRAxyP0ysjWQnvBBt4Ed1Pex/07/wB2v8z/AOdU2F2PHgIMPDe7DM8hAJzOVALWAva9lF+gFWew8WrYg2J1j6qy8m1tmAvz+dVkxxBoJ2/YqfQa5uFAdqmGsf362VJLtWQIjHMsVyASBdct2I5Ds/KtgrId8NrmHa80ii5VEQC5AuYwe0BzAzXt32r0tA1gSaABfBidJVbjezNOKnwyJSbtvZ0kMiK6sO2yg2Iv2WF1J599SdoKDGQeRIFv2hXnbW0jiMVC5FidSLkjspra/IHu8TXnaa3CDvkTTvsc1vlf3VDxrqrqje3gPyiY0leo/hxrG4J5p3aXGF2xcSsjBgCLE6+XPwNVB2awjDC5BGoPrD4cx8/OrXHvaJz+qa7RiwHgBUCbK4x3DqGO7tUXjXcLatz8RxNn4V/tQRn35Fv86t6XPR499mweAZf3ZHX8qY6sxcLxzm5XFvJFFFFZWqKKKKIsB2kmd5wfalmv75ZK4YRrxrfnYVKxP6WW/Piy/wCK9QsEbZ117Lnn3HtDzHa/6tVa7U+K95h7U6f9o+gX3C6F1ItZrjxB1uPff33rjtYdlW+y6/AnKf5vlXuRis6/ZdSPeNR8v+u7ti4M6Mv2gR7+h+NbU35HtfyIK1xFHt8PUo8wR8xZeotiytk7OUSeox9UnotxexJ0sbVp/opxmbAFOsUrr7mIlH+Jb3Vn27rySwh+JIMoyZIiqm2rHO7EBVDFgCb9eVqYfRtj0hx8uHV8yTLdD3ulza40JKM2o58Or6tiHVy+m4glsGwOknWehb0MGNDHyrB0xQe0wRmkX5/+g+idd7o2KRZbfpOpt/VydcrePSqGLCycSO+UfWR65yfbXpwhf4imXeP1Yv7z/wBuSqsDtx/3ifzivnvFXRxSi3nl/wCxXqqI/Rd5/RWm8eyTNGroqmeBuLDm5ZwPVJHssND7j0rNH9MmKBIOHhBFwQRICDyIPa0N62Ksp9I+wPouLjxyD6uRwJgFVrN1OU6EOo6+0L8yK9ZXLmtLmahU9cPsWujnp8/JRZPS7i4zlbDQKbBrWcaMM4OjdQ1/fTbubiZdoFMZiYkXhZ1gC5tc1g7nMTyy5R+34UimY7XxMMMaGNdTLopsikWfOBfkbBeQYjnzrZ8JhVijWNFCogCqByAAsBXDBPrVaYfVEHksMBNQkPzN2sPdvql3eXCM2IQix+rPMgWs+vsNzuO71evTjsPBOuKQkgdl+RvcdkW9RepU3/V5a6Wm2B9en9238yVz2eP6Qn3H/GOqmpTZ+aB0Xtz/AKVbg/oK+rCN4s+IxuIlRWYNM6qVBN+GAmlv1VB99bJvNtf6LhJpuqIco73PZQe9yBWSYWCWKIIJI3sMxW5SXQJKwVhqbqFJINtDbUV6yjXNA5mxOl503PK1tSB1VFj2io0MM87enz6SlzDJef7ifNm/yQ1IxMn1sS2vcs3kFUi/xYD319wsxkaWY2vLITpysNNPC+Y++vgW89+ipb3sb/Cw+fhVfjKpq13OPuLL3XBsP+HwFJg3v8zP0RtO/Ca3M2HzFSqh48XaJbXBkBPuVjr4XAqYKibK4bd58h7+a1j0bf8AlsX3pf8AHlpnpa9G4/8AC8Me9C3xdm/OmWrMaLwFQy8nqiiiisrRFFFFEWG7ehyYzEr3TyH95uJ+D1UNdZgfZcW8mGo+Iv8ADypo39wxTaM1xpII5B+4Iz84jS5iYiykA2bmp7mGov4dD4E1XPs8r3GEdnwzCNgPSy57QizJ4qQwtqbjXS3W167RSBlDDkReiKS6g2tfmO49R7jXLBxEScMAtmJKAam51KgDXvNcyYF9lJJDTm2K4wYMnEcIWHFN0voLk2YX+8Qf2qtRAIQJ4JC0uHkQklcqE62C31IuCDe1wx0qzn3FkeIvnyzL2o0FrZvss3iLjTlcG5tUbBYkSxCSdzIQzKI37CLIAT9cRY5mIIv3g3POrDCcXGIpZab5DCAQNSPlcES2ZaAb94kBfNeL4OnTxbqlMfFcHYHf1voZ0sJKmb1+kmLEmMLDIUQXIZ8nbIt7IJNgWXXxqiTe1AQRh2DKQVPGbQg3B9XoQKqNrYdBIzRklDrrzGnXy5E+F6g1ExuCDauZ4N7i7hbawNiN+qrPzLECzXCPAH9l+g90d8YMbH2GIlUDOjWDd2YW0Kk9R77V33uxmFXCuuLcLHICtubE/qAXJYGxFhoQDX55gxDIwZGKsOTKSCPIjUV7xmOklbNLI8jcszsWNu65Nde3MaLccROSCL+i1f0RyYREkSOXNiGJLZlKkoCQuUHmLdo25FteQp72ptWLDxNLM4RF5k/gB1J7hX5qgnZGDIxVlNwykgg94I5VK2ntyfEEGeZ5LcsxuB5DkKw2tDYhYp4/JTy5bj5Jl3g39TEYhpPo5ZdFTPIykKOlkNhc3Pv8Kj7M32WKaOQYfLlYElZHJy3GYAMbG63GvfSpXSDDs7BEF2Y2A8aiCgH1M4mZ/qP3iPRaDiGJPdB9B9lpe+m+MGMbDxI5MAtLKbEdsghUI5jKLlgO9bcqWNuqsMV8PJZprIFDBgwZbm3tqqtcENqbedRtn41sOrxhVYMRmDAMCQT7tbnUe41d7A3WTFBp2BjU6QAEm3Rn19ZSeyAegJvqDVxxGr+W0u1quIbYCCC1xMGcuxB3v3W7EhSMHGOrgOHjYggDkevK1zuJVNBCEVVHJQAPdXPBj1mvfMxPuFgPkKnbZ2bLACGUi5yq4F1v33tYd9mtyqLh4AiKo5KLC+p95qnZUbUbmYZBX1RjmvIyaBeGa8gHcpb4mw/Ou4qPA+Z3PQEKPcLn5n5V0lksrEakA2Hj0HnfSt1uHAAuK2L0ff8AleE/uVphqBsLZ/0fCwQ/2UaJ5lVAPzBNT6tF8+JkooooosLxNKFUsxsFBJPcALn5UnYXCyTRNipJmiZPrMwGYraztHYnSNR9UVWxYq5JuRZk3gQnCYgKCWMMgAHMnI1gPfSKd/MIsb4N5MkjytlLaKySy8VGUnmrJINRRFX73jFTRw4qWGNUUZGdCRq5FuySSUDgAPcXznQghioHE5HysRlb1ST1+yfyrVE3qwEuEOGlcAhOFJGQM6soCkFehB6kcx4VBiwUM8BASMHldVUZXX2hYaa2YeBFUnFcX+DyvLZBtPL3+yvMBjXU6fZgaGR9ksbM3blmsSOGn2mBufurzPmbDzphfdxYkDQC0yahzYs3K6MfssOgsPCp2zMWWBSTSRPW8R0Yd4NTq8Ti+JYiq+HGANhofHnKkVa763xaclHwWL4iBrFT1U81PUGkvfHZBXPiYrhCf6Qn2WHKWw6cs3ub7RppxCmGXiKCY3/SAa5T9sAanxsD7ta74iIm0kZubarfsuvd3X7j7jpW3D8a/h+IbiKPy2PNp++1iq/E4duIpmm/31CR8DsyIQGSQZlIQlxm7IJZWVbGxcHKbHmL6daXtobCkiCsUIVhceGl7eBtrlOtjTVjN3xG4nwsfEjVrvhSCGQj7C9R+p+7mGlQkxxxE6hXzKTd2dbXVe0eKoOVygBF7A/gPpWFxjceHVM2Zt3OBsWQNABMHcmIdaBYx5HE4XsIYWxsI/3TuftqL30lQopsbYUWJDyxq8ahsosGkPU37PaChct/WsTVYN1ZWCFCHEjMqctct791hoTqK5voNBMOAjUOhpBjNBPwyACTBOhUI0XWIvPK83jx15gKmoq1G7U2XN2bWY81zEKSGIXNc2seQ6VLfdXJGXaQGyq1rMBla1rNYAtrfLc9e6sNwxLg0uaJMazeY/2zF7Xi61FJ0TG0+XnCoo4yxsP9B5mmzZ+yxhmazB5RGWdCpAaMr2uHKDzCkm48bE6367Q2YiJKBCI0jAMUoLWcEgWJJysWU5uyBaxrnsDDYnFxiNDkgFwcQV7ZS+scJPrAnr6o8eVdH1MPRwvb5oGjpiTIBtGbYwQCHSfiEXm0MO81ezDZOoN7QSL6b6ajoV0GGjxchyhhDH2ppCMuVQOzhowDa9ubeN9CRd52dfhLdAmmiDki+yvmBblp3VXYTCRqy4aJAIYbM3PV73AN/WN+0SeZqdtB2No0JBcG7D2F7+Vr9BXzviePdjXtbcNHwgmYb16nU9IAXrcLh20GmNTqeZXiFTJMXJ7CXVB9puTMfL1R76p9v7sLlaSLskf1duyx6BbaqSdLAEa8hzpiw0CRqsaAKFGiju7/AI9e+ukkgUEk2A1JPICq+ji6lCoHUjH7jqpzHuZdpgrKsfgZMMgSRGRnJ15gk8yHW4PPvqz3X2NJiMQkcOT6nLK2fNkAU3QNl1OaQDTqFanTDISzTSHKLdgE6KgGpPS55+Fc93d9sFFG80syiSc57EgZYwCI0uTzydojo0jV7ThWOqYyoWuaO6JJBtOwj/OyYnHPFIttcR5b/NWMWClxUsnGkUTQCyIEXhDMAcxLZnvmX1kZDlKnQnS93e2iZoQWvmU5TfnewOtvaAIB8QaR8d6RsPh8SJgrOMSmZFAbNkBjjV7BSSGZGy94Fxe9Nm6Sm0zlSoeTMFbQjMA5B8VL5COhQjpXplQq/oooosIpX4GAEssIwivYBZDwQya9oRBmFiQGvw15ZtBc2pjxGJVFLOwAAJN+4amq/d7D3wiZwCZVMjjmM0hMjA94u5FEStjdibIxCcR8DNJdbhxh8WZGAFh21XNyAAudLAaVSYZMLs5lMXEihmfKySNnVWto6tqUKiwdHsQGVuSk077DZocTLhmJKm8kZPMjTNcnmTceJZZGPOu28GEUMsmUG/ZYECzWVit++/aj8pmqNisMzE0nUn6H3Pkt2PLDIVFtHDsRmjsJF5X696nwowG0RILEZXX1kPMH8x415xkJwJAYk4RrCKU3PCvyilJ9nkEkPgra2LesbsxZCGuVdfVdbXH+lfNMXhH4V/Y1h4O5/wCPUK2Y8PGZql1VTRPhyXjVpIibvGCSy66tEOvMkr8NdK+T7ReJbYg5QdBNGNL9LrY2/DwrjHLO1jFjMO629uK7e8xyLbTw6Vxp0nNuSMvnB8wPsVsSpXCjxCrNDLZukiWP7LqdD4qdR4VR7xbJhkIDj+ltoDhh2j0zSxsbBB1Zjp0NSZNmyZmebFxxX9fgqEzDx4jN8bE91qlbMlgjHDwkZe51YElB3lpWvfuAF/CwBtLo1X4ZwqUXmRpFo6F1rdND0XJ7G1BleBB96JcxOwMZBEV4cOIjW7BlbhuhIF2AZh3D2jy5Vzwe8DwRJxMJOqxhTnMb2ADO7m4WwuGtz5Xp0XZxZg0zZyOScowe/L7R8Ty6Wqh312yfo06xgGNbJPJzADOqmKMD15LNr0XrrpV1Q45WxRGHrMa8FwJN23JibECTPK5MXUB3DqTDnYS23Q/UH/Cptn7bPDWL6PiHdVa6CFrMrlrEkpmC3vysDbnUnBYHHSqsYjEYWPKwmOhUsxU8MZjcagHT1eddovSGcZtNGXCSIohdWv65TOjBsvtZTfQa2c2uQAWuaMSqrxOARqjjVSDa4Pept5jmLEVM4txaphK7mU6bBmObNBMEztMak7cjsFzocPY5oLnOMCImLW5AHYeyUsJ6OxkvJMZHU3VSoEIPOxjN81/1iR4VaS7VxKoU+jMr2sJAFaMacwqm5t3Wtp3VPk2vwzaWN0H2wC8Z/aQEj9oCva7YgP8AWp36kD8a8xXxmKxLs+I7/X7RbyVnTo06TctOwVVg8VJHGUhw8zHUmSWwLMebEE6kk8ri3hXXBYPFFdSkJY3ZieNMeepIyoNLWAuFHLwsH2zALfWqb8rG9/DTrXyTaLXASCRr+0ciqPPMwb4A1HL3me4BO5/zZdIHNe1ijhDOzan1nc6nuF+gHQCoiwNiGV3usS6rHqC5vo0gsNNLhde+uw2fmkWSViSp7CC2RfkCx8TXefEsXEUS55nF1Xoo5Z5CPVQHrzPIXNa0mPqPDKXeefTw++3qskgCToqvb8wldMLlZkcg4gqQoWKzMEZyRkD5GueYRXPdVlsjdbAR3y7JW3svkWUMLdDPZx7wBysTXbCbECYqKC+ewM87nQySXXmOgzCGw6KmXlzZtrYoxxEg2ZiFB7iTbN45RdvJTX0nhuBbgqApjXUnmVU1anaOlL645FDQxYIBB66MRmYCwBVYlkvYrlBcqAUsD2TlYdlTRPBG0NuEyhkyiwykXGg5c64bCwwEQfLYy2cg8wLAIp8VTKvmCepqHhNs4aBpYnmiiyysVDuqXDWc5cxFwJHYaciLVYrkr6ivisCLg3BooiyrYW+uzRDINpBUxiO4n4sbNIWDmxjYKSABYKARlsLdCWLdvfeC7Qu54ispKkdpQ6K3aA65z2raBnA8mefYsDyCR4ImkHJ2jQuPJiLisu9Kvo0y/wBNwCFHTWWOLskj+0jC8mHUDmNeYN8LKdtpbZi4sMy3OXVtDfLklHL3t8K47X3nDhEEZAM0NmJ6CaEnS3iRz6VlGxcDtfE4cqpkMkhQRliqFYvrWeQsbEIxkCgn1rsFvlNmPdz0RY2PErLicQHZblSGZ1VipGcl7MWUtmC5bEqLt0oin4r0mxJBw2nhIESi1hIWvGBlYDNfU66eBpUT0kQYV8sDPNBf9Gylcg0/RSMb5eZyMLDQArT9s/0H7MjtmSWW39pIw+UeWmPA7i7Ph/R4KAHvMas37zAn51HxGGpYlmSq2R705LZrywyEl7N31hxCg4d1kJteJmEc2p6Buy2nd3czUjjh7cXAyA+Stb5gD/StBl2dEycNokZPsFVK/ukWqqk3Nw/9XxIf7qV1UeSElB+7XnKv8OAXou+c/UfZShiv6glKNIBe2EkJvclo7knXq51ox28fCS5haO5ypxOzmboFQasdOQ8POmpdzI/bnxL+HGKf4QQ0mbxbLEO14EgSKK0DFHlzMZHZrMFN80jKqroWFsxPWolXgbqVN1Ws4HKJiXH1t9CugxAcYavMP07FWJ/osVrMp7Mz99rX4N+V75udrc677wwCOPCxxgKn0rDqFA6ceMi341ZcDEf20d/7lv8A+1VsWDxOMxggPBy4WSDEPIM6krxCwUIQ3a+qPtAa9aruHNdiMXTFOIaZgSLDe+v15LpVIawyr3fP/fcB5z/4S1W4rASo5fDFBmuXie+R2+0rD9G/O5AIbqL61b797Gnk4WIgkjVsKsrlZFZgwKDQZSPs9/Wl7ZceKmhjlOLA4iBrJAlhcXsCxJNqs/4goubXbWJAaRF5MxJ0APvRcsM4FuXdD72cMgTwPGxa1rqdO9ToHHeELHwqVLt/DesxI/WMUhH74Ujp31Sb14CYRo0s0MwV1IheEK0pzr2FsxDsbWC5db9OYfP+5ES/oZZ4B9lHDIPurMrhR4LaouF4QzGUe1pETMakD5kE+nmt31ywwUvjbsOUtGryX/s4nN/2soX4mvh2q5jLuow0f25WW/7t7A+ZPlV5/wByCfWx2KI7gYE+aQg/OrDAbqYaJw4jzyDlJKzSyD7rSElf2bVLpfw2+e+4D5uP0aPnK5nFjZY5tf0lQwEx4dpZnNw08ljl0/q42yg694A+9yqw2F6UcPEjBJWRmfMzTRguw11d1BzEaL0ABFrAVr+N2TDMLSwxyD9dFf8AmBpbx/om2XLe+EVCesbPH8kIHyr02EwFHCj9MXOp3PvkLKK+qX6qiwu/IDidCkxlMqAhrLdBhja465dbc6u8XvGMRCxKZAhcG5vzhnU9Byqp2h6HIRhZMPAzlHcSrncZopQuUMjBNVK6Mp6AEEEVQYLcDaWCbLJOJsI6ukhQktHmjkQSBHGayNIWIUnQctBaauacNq+lKCBXYo2VSACWC5jYmygXPQ1XJ6R8Dhoi8ueQyKrIUjzh0ZAQmf1VYPmzKxBDFjbXXMti7gY3H44xzXyK15ZwQ0YXn9Uy9liw5AeFwAK/RmBwCQxJFGoVEUKqjkABYfhRFkmyNm7cniEsDfRopGd44LhMiM7EAKRoLG45aEcqK2OispKK8TzKilmNlUXJPQCvdVsxzzlWPZiCuF72Oazt3hcuniCeYWxYWZb/AO+O09lSpiI4oThJ/wCrMVij69mR0IOcqAb3tfMLdm5kbv8A/aHwUthiY5MO3Uj62P4qAw/dpgxu14sVDiZZwjbLEfD1Us0zhrGSIjXIGIRbXLMLrbS+GekH0ZSYA8eEmbBuexKNSlz6soHI30vyPgdKIv0hsrfPA4kDg4uFyfZDqG96GzD4VdV+Kdk7N48gTixRE+1M+RPexFh761/dX0LbRyq/+1BDGdQcNJLJfyIKL7wTRFu9FUe7W7BwgObF4rEsRYtPKXH7K8h8z41eURFRdpbKhxCZJokkTnldQRfvF+R8RUqiiLMotgBcTio4p8REsUqhFWUsoVoIntlmDj1mb41dejnAMPpUzyNLxJuGrsioSsQynRNCBIZBcWvlr5vJsfFDESNhkzDFKq57qODKFycRwSLpw7HS5vHa3apr2bgEghSKMWSNQqjwAtr4+NUuEwb6eMq1nfDtYb3N9fJSH1AaYaF2nhDqynkwIPkRY1k26+7AOEiSWXEZkLIyrPKigpIyEAIwt6ta5SRvPu9izMy4RFEeKB4jlgOBIey0oW92DJrZfbW5tmJrfi+FrYmiBRMODh8tD91ig9rXd5dfR1u7CuEgxJjDTyJm4zkySZWJIAdySoykCwtTlXDA4NYYkiQWWNVRR+qoCj5Cu9WzQGiAuJMoooqPj8HxYymd47+1G2Vx5GsrCkVHxm0YoVzSypGve7Ko+LEVmG8von2lJf6PtrEMOiTySD+OI2P7grGt7tzMRgnIxM8Dv1CziST3oe0PeKIv0Dtz01bLwwNp+Ow9mAZ/4zZP4qQp/Trj8biEw+zsKiNI2Vc95HPieSqANTcGwB1rJdg7Anxk6w4eMyO3QcgOrMToqjvNbxu/u7BsPDsIys+0JAFZrMQt9eHHpa+UFljLK0pA5XABFpezJ3tw5iplUAkoCqPpqyqSSBmuCLm2neKn0r7G28mLw3EVrSxIrlrAKGZM/sswsRzW/I9NLMsT3UG1rgG3d4URe6KKKIiouNweezKcsi+q3Pna6sOqmwuPAEWIBEqiiJC21u0WYyYVFjxKEyNA1sjSclnXQZyl2ZASELm7BWuaod3sXPAzYeKBpgS3HhdQezZ8qykMyriZlvJITpoikXYVqeLwSyAXuCNVYaMp71P5cjyII0pd27sNJQRiPq3K5Bi4gAcp0s9weGSLrflZjlZS1qIsz2x6HMJjmafZk+RMxEkOUtlNyLxhipykg2FyCNVJ0FctgejXbOBJk2fjYWAPaizuoJ+zJDKlgbd9iPCmTGbFmwQbsSoIlkeOWF3Ike8i4eNmY2w8EEUmqvZDf2gDe/h3ugkMjSBlOHSENiIwQWeVygWOMAuyFhmUEHMCCFIIJLKtd1tuYuQcPHYJsPMB66FZIHt1VlJKH9V/cTTHVNhtpyGPOmXEqQSrIQr6XFmVjb1gQSCDcEZdLVxwuIKlV4x4h07eazm3WKQhkPO2TT8KLCv6KhDaBH6SNh4reRf4Rm+KiukW0omIUOMx9k6N+6bGiKTRRRREUUUURFFccRjES2d1W/LMQL+V64/7UQ+qHf7qNY/tEBfnRFMqHtbaPAiLiKSU8hHEuZ2Pd3AeLEAd9RMVjX9oiNeoBXNY8s0jdlPIZj3GjA4+QqQFMlmNnN1TLoR22F2tcrcKb5b9aIs23j2fvHtElQseAgN+xxgGI/8AUkjzMfIWHhSvs3/s/TO4MmMi4fN3RXYW65GfKGPjyHf0rV9sb34WMNxZhOyZC0Udsiq0nDzsL2dVb1iS2W3IVQ7ybRmxUjYdmliZZnSMRRtJFPHcDtoRq8d43JDABSSpDCykXXYuKwWBheDARHhBVMuKDKXIkLRriFuPrkRwcxWwWxsDRsPYWJxH1k5RI3VTPIBlaco4ZSyEKEmjZCDONGU9kaKy2ezd1FjdZMUQ8hJZYIr5OI2QzEXsWjeVBLlYBFY+RppTBs5DS2tzEY1UHoWPtt8h0FxeiKPg8CjKFRBHACWChcvEYnMSR0Qsb66seenrW1FFERRRRREUUUURFfCK+0URVsmyioPCy5ToYX1jI6heZj8gCv6vWl7FbuRPiFkR2w8+cScOUcSJ5FQojBMwDFFPZCOAOZW9OdeJoFdSrKGU8wQCD5g0RZ3sTcyZMaDMJMsfqSqyagSCYu0gIbPLM0ueMJbKyi9gczszBpwt/wBEue36z5lBt4Krj9qvQ2WV/Ryuo+ySHX3ZwSPIEDwr6myEt2rsxOYuey17AdkpbKLACw6DrqaIvO0icgVWys7qoI7r5m/gVqgSKxcR50YoVd0EpD5QcwPDfNlGYDXMNL1JliCTR5pGK5XsHK2z9gCxtcnKz6E99Ku8GxZmxrzyYdnw+fDqwUCQyQomIJvGpzMoxEkZZLahQdbGiJ1+msOcMnu4Z/B7/Kvv+0B9iT9xqzbBsyNGJRLhi+Ggyxq86hR9LkeUX0sY4Qua+oU2uRrXFd85CxEmJMXFxWFmj+tjBGFmJUpoTZQqXINiC9za4osrT/8AaA+xJ/w3/wAq+f7Q7o5D+zb5sQKz7Fb15sZI0GMLDiYPhQ5lKPHIzLNZCL5eGpkzdAA17HWvbb0kpyyvM6SYmHFRcNpHvhZJGjeM8D2UVc2Q8rnuosLQ5+IZQyoUzLlOZ0W5BuLZQ59pvlXbBNIJGSRgeyrLa+mrBhc6tyU309blWfbO3fxX0qGb6O8llOVpsgIC4iYQmV5DxQ6wOrHL2jkVW56aDioyZ47OVurg2Ck27BHrA6C3d7VERi4VEsclhf8ARk2FwG1U36dsW/bNIG9eHmkxkmHkkkljNnCrnZxDOOEGWGNQpOHxCB8x1yt11NaI+yFYdpmZujMblT0ZRbKpB6gV9+jSnnKo7yiWP8bMB8DRElS7ptOEkxYjw5SS5ClXLEhWfhkGwV5gzBSGJEkgK3YWY9ibEWGPJh0MSG2aSQl5nsoUE57m+VQAX5WAy2q3gwCKc1rt9tiWb4nkPAWFSKIuGGwapew1PNibs3mTqfy6V3oooiKKKKIiiiiiIooooiKKKKIiiiiiIooooi8ugIsQCD0OoqKdlRc1XJ9wsn8hF6+UURLW1drSxSZUkYDx7Xze5rjhtsSyHtlW80T/AONfaKIpOI2nIgupUG3MIncPCq//ALyYj+0/hT/KvtFETRs/CCRAzlySNfrJLfuhrVPw+DRL5EVb87AC/mRzoooi7UUUURFFFFERRRRREUUUURFFFFEX/9k=';
-
-    function exportarPDF(){
-      if(!window.jspdf?.jsPDF){
-        mostrarFeedback('Não foi possível carregar o gerador de PDF','warning',false);
-        return;
-      }
-
-      const {jsPDF}=window.jspdf;
-      const doc=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-      const statusLabel={localizado:'Localizado',antigo:'Etiqueta Antiga',fora:'Fora da Lista','nao-localizado':'Não Localizado'};
-      const grupos=new Map();
-
-      dadosPlanilha.forEach(item=>{
-        const unidade=item.unidade||item.centroCusto||'Não informado';
-        const localizacao=item.localizacao||'Não informado';
-        const dependencia=item.setor||'Não informado';
-        const chave=`${item.abaOrigem||''}|${unidade}|${localizacao}|${dependencia}`;
-        if(!grupos.has(chave))grupos.set(chave,{unidade,localizacao,dependencia,itens:[]});
-        grupos.get(chave).itens.push(item);
-      });
-
-      if(foraDaLista.length){
-        grupos.set('__fora__',{
-          unidade:'ITENS ENCONTRADOS FORA DA LISTA',
-          localizacao:'-',
-          dependencia:'-',
-          itens:foraDaLista.map(f=>({
-            patrimonio:f.numero||'',antigo:'',dataAquisicao:'',descricao:'',numeroSerie:'',situacaoBem:'',
-            status:'fora',ultimoInventario:'',valorUnitario:'',observacao:f.observacao||'',
-            dataHora:f.dataHora||'',conferente:f.conferente||''
-          }))
-        });
-      }
-
-      if(!grupos.size){
-        mostrarFeedback('Não há dados para exportar em PDF','warning',false);
-        return;
-      }
-
-      let primeiroGrupo=true;
-      const emissao=new Date().toLocaleDateString('pt-BR');
-      const desenharCabecalho=grupo=>{
-        doc.addImage(BRASAO_DPE,'JPEG',9,5,13,17);
-        doc.setTextColor(0,0,0);
-        doc.setFont('helvetica','bold');
-        doc.setFontSize(8.5);
-        doc.text('GOVERNO DO ESTADO DO RIO GRANDE DO SUL - DEFENSORIA PÚBLICA DO ESTADO',26,10);
-        doc.setFontSize(8);
-        doc.text(`RELATÓRIO DE INVENTÁRIO - EMISSÃO: ${emissao}`,26,16);
-        doc.setFontSize(7.5);
-        doc.text(`PÁGINA: ${doc.internal.getNumberOfPages()}`,270,10);
-        doc.text(`EMISSÃO: ${emissao}`,270,16,{align:'right'});
-        doc.setFontSize(8.5);
-        doc.text(`UNIDADE: ${grupo.unidade}`,10,28,{maxWidth:277});
-        doc.text(`LOCALIZAÇÃO: ${grupo.localizacao}`,10,34,{maxWidth:277});
-        doc.text(`DEPENDÊNCIA: ${grupo.dependencia}`,10,40,{maxWidth:277});
-      };
-
-      for(const grupo of grupos.values()){
-        if(!primeiroGrupo)doc.addPage('a4','landscape');
-        primeiroGrupo=false;
-        const linhas=grupo.itens.map(item=>{
-          const statusTexto=statusLabel[item.status]||item.status||'';
-          const statusCompleto=item.dataHora
-            ?[statusTexto,item.conferente||'Não informado',item.dataHora].join('\n')
-            :statusTexto;
-          return [
-            item.patrimonio||'',item.antigo||'',item.dataAquisicao||'',item.descricao||'',item.numeroSerie||'',
-            item.situacaoBem||'',statusCompleto,item.ultimoInventario||'',item.valorUnitario||'',item.observacao||''
-          ];
-        });
-
-        doc.autoTable({
-          startY:44,
-          margin:{top:44,right:10,bottom:12,left:10},
-          head:[['REGISTRO\nPATRIMONIAL','REGISTRO\nANTERIOR','DT.\nAQUISIÇÃO','DESCRIÇÃO DO BEM','Nº DE SÉRIE','SITUAÇÃO','STATUS DO\nINVENTÁRIO','ÚLTIMO\nINVENTÁRIO','VALOR UNIT.\n(R$)','OBS.']],
-          body:linhas,
-          theme:'grid',
-          styles:{font:'helvetica',fontSize:6.2,textColor:0,lineColor:0,lineWidth:.15,cellPadding:1,overflow:'linebreak',valign:'top'},
-          headStyles:{fillColor:[210,210,210],textColor:0,fontStyle:'bold',halign:'center',valign:'middle',lineColor:0,lineWidth:.2},
-          columnStyles:{
-            0:{cellWidth:22,halign:'center'},1:{cellWidth:20,halign:'center'},2:{cellWidth:18,halign:'center'},
-            3:{cellWidth:58},4:{cellWidth:28},5:{cellWidth:25},6:{cellWidth:30,halign:'center'},7:{cellWidth:20},
-            8:{cellWidth:20,halign:'right'},9:{cellWidth:36}
-          },
-          didDrawPage:()=>desenharCabecalho(grupo)
-        });
-      }
-
-      const totalPaginas=doc.internal.getNumberOfPages();
-      for(let pagina=1;pagina<=totalPaginas;pagina++){
-        doc.setPage(pagina);
-        doc.setFont('helvetica','normal');
-        doc.setFontSize(7);
-        doc.text(`Página ${pagina} de ${totalPaginas}`,287,204,{align:'right'});
-      }
-
-      const dataArquivo=new Date().toISOString().slice(0,10);
-      doc.save(`inventario_patrimonial_${dataArquivo}.pdf`);
     }
 
     function exportarExcel(){
@@ -1142,15 +692,10 @@
       let dadosExportar=[...dadosPlanilha];
 
       if(exportCompleto){
-        dadosExportar.push(...foraDaLista.map(f=>{
-          const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
-          return {
-            patrimonio:tipoNumero==='novo'?f.numero:'',
-            antigo:tipoNumero==='antigo'?f.numero:'',
-            descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-',status:'fora',dataHora:f.dataHora,
-            observacao:f.observacao||'',imprimirEtiqueta:Boolean(f.imprimirEtiqueta),abaOrigem:'Fora da lista'
-          };
-        }));
+        dadosExportar.push(...foraDaLista.map(f=>({
+          patrimonio:'',antigo:f.numero,descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-',status:'fora',dataHora:f.dataHora,
+          observacao:f.observacao||'',imprimirEtiqueta:Boolean(f.imprimirEtiqueta),abaOrigem:'Fora da lista'
+        })));
       }
 
       if(exportProcessados)dadosExportar=dadosExportar.filter(item=>item.dataHora);
@@ -1182,53 +727,7 @@
       XLSX.writeFile(wb,`inventario_processado_${dataArquivo}.xlsx`);
     }
 
-    // Áudio e vibração de feedback
-    function getAudioCtx(){
-      if(!audioCtx){
-        try{ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); }
-        catch(e){ audioCtx=null; }
-      }
-      return audioCtx;
-    }
-
-    function tocarBeep(frequencias,duracaoMs=120){
-      const ctx=getAudioCtx();
-      if(!ctx)return;
-      if(ctx.state==='suspended')ctx.resume();
-      let tempo=ctx.currentTime;
-      frequencias.forEach(freq=>{
-        const osc=ctx.createOscillator();
-        const gain=ctx.createGain();
-        osc.type='sine';
-        osc.frequency.value=freq;
-        gain.gain.setValueAtTime(0.0001,tempo);
-        gain.gain.exponentialRampToValueAtTime(0.25,tempo+0.01);
-        gain.gain.exponentialRampToValueAtTime(0.0001,tempo+duracaoMs/1000);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(tempo);
-        osc.stop(tempo+duracaoMs/1000+0.02);
-        tempo+=duracaoMs/1000+0.06;
-      });
-    }
-
-    // categoria: 'novo' | 'ja-processado' | 'fora'
-    function tocarFeedbackSonoro(categoria){
-      if(categoria==='novo')tocarBeep([880],130);
-      else if(categoria==='fora')tocarBeep([440,330],150);
-      else if(categoria==='ja-processado')tocarBeep([600],90);
-    }
-
-    function vibrarFeedback(categoria){
-      if(!navigator.vibrate)return;
-      if(categoria==='novo')navigator.vibrate(70);
-      else if(categoria==='fora')navigator.vibrate([90,60,90]);
-      else if(categoria==='ja-processado')navigator.vibrate(35);
-    }
-
-    // som: categoria explícita ('novo'|'ja-processado'|'fora'), false para silenciar,
-    // ou omitido para usar o próprio 'tipo' visual como categoria
-    function mostrarFeedback(msg,tipo='success',som){
+    function mostrarFeedback(msg,tipo='success'){
       const f=document.getElementById('feedback-scan');
       if(feedbackTimer)clearTimeout(feedbackTimer);
       f.innerText=msg;
@@ -1237,12 +736,6 @@
       else if(tipo==='info')f.classList.add('feedback-info');
       f.style.display='block';
       feedbackTimer=setTimeout(()=>{f.style.display='none';feedbackTimer=null;},4000);
-
-      if(som!==false){
-        const categoria=som||(tipo==='success'?'novo':tipo==='warning'?'fora':'ja-processado');
-        tocarFeedbackSonoro(categoria);
-        vibrarFeedback(categoria);
-      }
     }
 
     // FUNÇÕES DO SCANNER CORRIGIDAS
@@ -1286,7 +779,6 @@
         );
         
         console.log('Scanner iniciado com sucesso');
-        configurarZoomCamera();
         
       } catch (error) {
         console.error('Erro ao iniciar scanner:', error);
@@ -1294,44 +786,6 @@
         stopScanner();
       }
     }
-
-    // Detecta se a câmera ativa suporta zoom e configura o controle deslizante
-    function configurarZoomCamera(){
-      const zoomControl=document.getElementById('zoom-control');
-      const zoomSlider=document.getElementById('zoom-slider');
-      try{
-        if(!html5QrCode||typeof html5QrCode.getRunningTrackCapabilities!=='function'){
-          zoomControl.style.display='none';
-          return;
-        }
-        const capabilities=html5QrCode.getRunningTrackCapabilities();
-        if(!capabilities||!capabilities.zoom){
-          zoomControl.style.display='none';
-          return;
-        }
-        const {min,max,step}=capabilities.zoom;
-        zoomSlider.min=min;
-        zoomSlider.max=max;
-        zoomSlider.step=step||0.1;
-        let valorInicial=min;
-        try{
-          const settings=html5QrCode.getRunningTrackSettings();
-          if(settings&&typeof settings.zoom==='number')valorInicial=settings.zoom;
-        }catch(e){/* configurações atuais indisponíveis, usa o mínimo */}
-        zoomSlider.value=valorInicial;
-        zoomControl.style.display='block';
-      }catch(e){
-        console.warn('Zoom não suportado nesta câmera/navegador:',e);
-        zoomControl.style.display='none';
-      }
-    }
-
-    document.getElementById('zoom-slider').addEventListener('input',e=>{
-      if(!html5QrCode)return;
-      const valor=parseFloat(e.target.value);
-      html5QrCode.applyVideoConstraints({advanced:[{zoom:valor}]})
-        .catch(err=>console.warn('Erro ao aplicar zoom:',err));
-    });
 
     function onScanSuccess(decodedText, decodedResult) {
       console.log(`Código escaneado: ${decodedText}`);
@@ -1357,7 +811,6 @@
           html5QrCode = null;
         }
         document.getElementById('camera-status').style.display = 'none';
-        document.getElementById('zoom-control').style.display = 'none';
         console.log('Scanner parado');
       } catch (error) {
         console.warn('Erro ao parar scanner:', error);
@@ -1412,25 +865,19 @@
     
     els.btnLimpar.onclick=()=>{
       if(confirm('Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.')){
-        localStorage.removeItem('inventarioDados');
+        localStorage.clear();
         dadosPlanilha=[];
         foraDaLista=[];
         processedSet=new Set();
-        historicoAuditoria=[];
-        ultimoScanBruto={numero:null,timestamp:0};
-        ultimaAcao=null;
-        els.btnDesfazer.disabled=true;
         els.tabelaBody.innerHTML='';
         reconstruirIndice();
         atualizarResumoVisual();
         els.tabelaContainer.classList.add('d-none');
         els.btnExport.disabled=true;
-        els.btnPdf.disabled=true;
-        els.btnImprimirLista.disabled=true;
-        atualizarBotaoEtiquetas();
+        els.dashboard.style.display='none';
         els.infoUnidade.style.display='none';
         limparFiltros();
-        mostrarFeedback('Dados limpos com sucesso','success',false);
+        mostrarFeedback('Dados limpos com sucesso');
       }
     };
     
@@ -1441,65 +888,10 @@
     els.filtroTexto.oninput=aoAlterarFiltro;
     els.input.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.value.trim()){processarNumero(e.target.value.trim());e.target.value='';}});
     els.btnExport.onclick=exportarExcel;
-    els.btnPdf.onclick=exportarPDF;
-    els.btnImprimirLista.onclick=imprimirListaFiltrada;
-    els.btnImprimirEtiquetas.onclick=imprimirEtiquetasSelecionadas;
-
-    // Conferente responsável (persiste separadamente, sobrevive ao "Limpar Dados")
-    els.conferenteNome.value=conferenteAtual;
-    els.conferenteNome.addEventListener('input',()=>{
-      conferenteAtual=els.conferenteNome.value;
-      localStorage.setItem('inventarioConferenteNome',conferenteAtual);
-    });
-
-    // Histórico de auditoria
-    function renderizarHistorico(){
-      const tbody=document.getElementById('historico-body');
-      if(historicoAuditoria.length===0){
-        tbody.innerHTML='<tr><td colspan="5" class="text-center text-muted">Nenhuma leitura registrada ainda.</td></tr>';
-        return;
-      }
-      const linhas=[...historicoAuditoria].reverse().map(h=>`
-        <tr>
-          <td>${escapeHtml(h.dataHora)}</td>
-          <td>${escapeHtml(h.conferente)}</td>
-          <td>${escapeHtml(h.numero)}</td>
-          <td>${escapeHtml(ROTULOS_AUDITORIA[h.tipo]||h.tipo)}</td>
-          <td>${escapeHtml(h.detalhe||'')}</td>
-        </tr>`).join('');
-      tbody.innerHTML=linhas;
-    }
-
-    els.btnHistorico.addEventListener('click',()=>{
-      renderizarHistorico();
-      document.getElementById('modal-historico').style.display='flex';
-    });
-    document.getElementById('fechar-historico').addEventListener('click',()=>{
-      document.getElementById('modal-historico').style.display='none';
-    });
-    document.getElementById('btn-exportar-historico').addEventListener('click',()=>{
-      if(historicoAuditoria.length===0){
-        mostrarFeedback('Não há histórico para exportar','info',false);
-        return;
-      }
-      const linhas=historicoAuditoria.map(h=>({
-        'Data/Hora':h.dataHora,
-        'Conferente':h.conferente,
-        'Número':h.numero,
-        'Ação':ROTULOS_AUDITORIA[h.tipo]||h.tipo,
-        'Detalhe':h.detalhe||''
-      }));
-      const ws=XLSX.utils.json_to_sheet(linhas);
-      const wb=XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb,ws,'Histórico de Leituras');
-      const dataArquivo=new Date().toISOString().slice(0,10);
-      XLSX.writeFile(wb,`historico_auditoria_${dataArquivo}.xlsx`);
-    });
 
     // Inicialização
     carregarDadosSalvos();
     atualizarIndicacaoFiltros();
-    atualizarBotaoEtiquetas();
   </script>
 </body>
 </html>
