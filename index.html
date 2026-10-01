@@ -94,7 +94,10 @@
 
   <div class="card p-3 mb-3">
     <label class="form-label fw-bold">Digite ou escaneie o número</label>
-    <input id="numero-patrimonio" class="form-control text-center" placeholder="Digite ou escaneie aqui..." inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <div class="input-group">
+      <input id="numero-patrimonio" class="form-control text-center" placeholder="Digite ou escaneie aqui..." inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button id="btn-registrar" class="btn btn-primary" type="button">Registrar</button>
+    </div>
     <div id="status-texto" class="mt-2 text-muted">Aguardando leitura...</div>
   </div>
 
@@ -1439,7 +1442,24 @@
     els.filtroSetor.onchange=aoAlterarFiltro;
     els.filtroStatus.onchange=aoAlterarFiltro;
     els.filtroTexto.oninput=aoAlterarFiltro;
-    els.input.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.value.trim()){processarNumero(e.target.value.trim());e.target.value='';}});
+    function registrarNumeroDigitado(){
+      const numero=els.input.value.trim();
+      if(!numero){
+        els.input.focus();
+        return;
+      }
+      processarNumero(numero);
+      els.input.value='';
+      els.input.focus();
+    }
+
+    els.input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        registrarNumeroDigitado();
+      }
+    });
+    document.getElementById('btn-registrar').addEventListener('click',registrarNumeroDigitado);
     els.btnExport.onclick=exportarExcel;
     els.btnPdf.onclick=exportarPDF;
     els.btnImprimirLista.onclick=imprimirListaFiltrada;
