@@ -910,7 +910,7 @@
         const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
         JsBarcode(svg,patrimonio,{format:'CODE128',displayValue:false,margin:0,width:2,height:52});
         svg.setAttribute('preserveAspectRatio','none');
-        return `<section class="etiqueta"><div class="titulo">Defensoria Pública RS</div><div class="separador"></div><div class="codigo">${svg.outerHTML}</div><div class="patrimonio">${patrimonio}</div></section>`;
+        return `<section class="etiqueta"><div class="titulo">DEFENSORIA PÚBLICA RS</div><div class="separador"></div><div class="codigo">${svg.outerHTML}</div><div class="patrimonio">${patrimonio}</div></section>`;
       }).join('');
 
       const janela=window.open('','_blank','width=720,height=720');
