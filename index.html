@@ -81,46 +81,12 @@
     <div id="upload-warning" class="alert alert-warning mt-2 mb-0" style="display:none"></div>
   </div>
 
-  <div class="row g-2 g-md-3 mb-3 text-center">
-    <div class="col-4 col-md-2"><div class="counter-card bg-primary" data-filter=""><div>Total</div><div id="total-bens">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-success" data-filter="localizado"><div>Localizados</div><div id="total-localizados">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-info" data-filter="antigo"><div>Etiqueta Antiga</div><div id="total-antigos">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-secondary" data-filter="nao-localizado"><div>Não Localizado</div><div id="total-nao">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-warning text-dark" data-filter="fora"><div>Fora da Lista</div><div id="total-fora">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-dark"><div>Centros</div><div id="total-centros">0</div></div></div>
-  </div>
-
-
   <div class="card p-3 mb-3">
     <label class="form-label fw-bold">Conferente responsável pela leitura</label>
     <input id="conferente-nome" class="form-control" placeholder="Nome de quem está fazendo a conferência" maxlength="80" autocomplete="off">
     <div class="form-text">Fica registrado em cada leitura, para fins de auditoria.</div>
   </div>
 
-  <div class="card p-3 mb-3">
-    <label class="form-label fw-bold">Digite ou escaneie o número</label>
-    <div class="input-group">
-      <input id="numero-patrimonio" class="form-control text-center" placeholder="Digite ou escaneie aqui..." inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-      <button id="btn-registrar" class="btn btn-primary" type="button">Registrar</button>
-    </div>
-    <div id="status-texto" class="mt-2 text-muted">Aguardando leitura...</div>
-  </div>
-
-  <div class="text-center mb-2">
-    <button id="btn-desfazer" class="btn btn-outline-secondary ms-2" disabled>↩️ Desfazer última leitura</button>
-    <button id="btn-historico" class="btn btn-outline-info ms-2">📜 Histórico de Leituras</button>
-    <button id="btn-limpar-dados" class="btn btn-outline-danger ms-2">Limpar Dados</button>
-  </div>
-
-  <!-- Controles internos mantidos para compatibilidade com filtros dos indicadores -->
-  <div hidden aria-hidden="true">
-    <select id="filtro-centro"><option value="">Todos</option></select>
-    <select id="filtro-setor"><option value="">Todos</option></select>
-    <select id="filtro-status"><option value="">Todos</option><option value="localizado">Localizado</option><option value="antigo">Etiqueta Antiga</option><option value="nao-localizado">Não Localizado</option><option value="fora">Fora da Lista</option></select>
-    <input id="filtro-texto" type="text">
-  </div>
-
-  <div class="card p-2 mb-2"><label class="form-check-label"><input type="checkbox" class="form-check-input me-2" id="filtro-etiqueta">Somente marcados para imprimir etiqueta</label><div id="resumo-filtros" aria-live="polite"></div><div class="d-flex flex-wrap gap-2 align-items-center"><span id="contagem-visivel" class="text-muted small"></span><label class="form-check-label small ms-auto"><input type="checkbox" id="imprimir-apenas-filtrados" class="form-check-input me-1">Imprimir somente etiquetas filtradas</label></div></div>
   <!-- Cabeçalho com informações da unidade -->
   <div id="info-unidade" class="info-header" style="display:none">
     <div class="row">
@@ -145,6 +111,39 @@
     </div>
   </div>
 
+
+  <div class="card p-3 mb-3">
+    <label class="form-label fw-bold">Digite ou escaneie o número</label>
+    <div class="input-group">
+      <input id="numero-patrimonio" class="form-control text-center" placeholder="Digite ou escaneie aqui..." inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button id="btn-registrar" class="btn btn-primary" type="button">Registrar</button>
+    </div>
+    <div id="status-texto" class="mt-2 text-muted">Aguardando leitura...</div>
+    <div class="d-flex flex-wrap justify-content-center gap-2 mt-2">
+    <button id="btn-desfazer" class="btn btn-outline-secondary btn-sm" disabled>↩️ Desfazer última leitura</button>
+    <button id="btn-historico" class="btn btn-outline-info btn-sm">📜 Histórico de Leituras</button>
+    <button id="btn-limpar-dados" class="btn btn-outline-danger btn-sm">Limpar Dados</button>
+    </div>
+  </div>
+
+  <!-- Controles internos mantidos para compatibilidade com filtros dos indicadores -->
+  <div hidden aria-hidden="true">
+    <select id="filtro-centro"><option value="">Todos</option></select>
+    <select id="filtro-setor"><option value="">Todos</option></select>
+    <select id="filtro-status"><option value="">Todos</option><option value="localizado">Localizado</option><option value="antigo">Etiqueta Antiga</option><option value="nao-localizado">Não Localizado</option><option value="fora">Fora da Lista</option></select>
+    <input id="filtro-texto" type="text">
+  </div>
+
+  <div class="row g-2 g-md-3 mb-3 text-center">
+    <div class="col-4 col-md-2"><div class="counter-card bg-primary" data-filter=""><div>Total</div><div id="total-bens">0</div></div></div>
+    <div class="col-4 col-md-2"><div class="counter-card bg-success" data-filter="localizado"><div>Localizados</div><div id="total-localizados">0</div></div></div>
+    <div class="col-4 col-md-2"><div class="counter-card bg-info" data-filter="antigo"><div>Etiqueta Antiga</div><div id="total-antigos">0</div></div></div>
+    <div class="col-4 col-md-2"><div class="counter-card bg-secondary" data-filter="nao-localizado"><div>Não Localizado</div><div id="total-nao">0</div></div></div>
+    <div class="col-4 col-md-2"><div class="counter-card bg-warning text-dark" data-filter="fora"><div>Fora da Lista</div><div id="total-fora">0</div></div></div>
+    <div class="col-4 col-md-2"><div class="counter-card bg-dark"><div>Centros</div><div id="total-centros">0</div></div></div>
+  </div>
+
+
   <div id="tabela-container" class="table-container d-none">
     <table class="table table-hover mb-0">
       <thead>
@@ -162,11 +161,12 @@
     </table>
   </div>
 
-  <div class="text-center my-3">
+  <div class="text-center my-3 d-flex flex-wrap justify-content-center align-items-center gap-2">
     <button id="btn-exportar" class="btn btn-primary" disabled>Exportar Excel</button>
-    <button id="btn-exportar-pdf" class="btn btn-danger ms-2" disabled>Exportar PDF</button>
-    <button id="btn-imprimir-lista" class="btn btn-outline-dark ms-2" disabled>🖨️ Imprimir lista filtrada</button>
-    <button id="btn-imprimir-etiquetas" class="btn btn-dark ms-2" disabled>🖨️ Imprimir etiquetas selecionadas (0)</button>
+    <button id="btn-exportar-pdf" class="btn btn-danger" disabled>Exportar PDF</button>
+    <button id="btn-imprimir-lista" class="btn btn-outline-dark" disabled>🖨️ Imprimir lista filtrada</button>
+    <button id="btn-imprimir-etiquetas" class="btn btn-dark" disabled>🖨️ Imprimir etiquetas selecionadas (0)</button>
+  <div class="card p-2 mb-2"><label class="form-check-label"><input type="checkbox" class="form-check-input me-2" id="filtro-etiqueta">Somente marcados para imprimir etiqueta</label><div id="resumo-filtros" aria-live="polite"></div><div class="d-flex flex-wrap gap-2 align-items-center"><span id="contagem-visivel" class="text-muted small"></span><label class="form-check-label small ms-auto"><input type="checkbox" id="imprimir-apenas-filtrados" class="form-check-input me-1">Imprimir somente etiquetas filtradas</label></div></div>
     <div class="export-options">
       <div class="form-check form-check-inline">
         <input class="form-check-input" type="checkbox" id="export-completo" checked>
