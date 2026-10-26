@@ -17,7 +17,7 @@
     .scanner-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1150;align-items:center;justify-content:center}
     .scanner-content{background:#fff;border-radius:12px;padding:18px;max-width:96%;max-height:92%;text-align:center;position:relative}
     #reader{width:100%;max-width:640px;height:360px;background:#000;margin:0 auto;display:flex;align-items:center;justify-content:center}
-    #reader video{width:100%;height:100%;object-fit:cover}
+    #reader video{width:100%;height:100%;object-fit:contain}
     #camera-status{position:absolute;top:12px;right:12px;background:#198754;color:#fff;padding:6px 12px;border-radius:20px;font-weight:600;display:none;z-index:1300;animation:pulse 1.2s infinite}
     @keyframes pulse{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
     .feedback-scan{position:fixed;bottom:100px;right:20px;background:#198754;color:#fff;padding:12px 20px;border-radius:24px;display:none;z-index:2000;font-weight:600;box-shadow:0 6px 18px rgba(0,0,0,.18);max-width:min(420px,calc(100vw - 40px))}
@@ -44,8 +44,8 @@
     #tabela-container thead th.sortable[aria-sort="descending"]::after{content:' ▼';opacity:1}
     #scanner-modal{height:var(--scanner-viewport-height,100dvh);top:var(--scanner-viewport-top,0px);bottom:auto;align-items:center;overflow-y:auto;padding:8px}
     #scanner-modal .scanner-content{max-height:calc(var(--scanner-viewport-height,100dvh) - 16px);overflow-y:auto;width:min(96%,680px)}
-    #reader{height:min(360px,38dvh);overflow:hidden}
-    #reader video{transform:scale(var(--scanner-digital-zoom,1));transform-origin:center center}
+    #reader{height:min(380px,46dvh);overflow:hidden}
+    #reader video{transform:none;transform-origin:center center}
     @media(max-height:530px){#reader{height:170px}#scanner-modal .scanner-content{padding:8px}}
     .zoom-hint{font-size:.75rem;color:#6c757d}
     #tabela-container tbody td{padding-top:5px;padding-bottom:5px;vertical-align:middle}
@@ -1355,82 +1355,110 @@
       }
     }
 
-    // FUNÇÕES DO SCANNER CORRIGIDAS
-    async function startScanner() {
-      try {
-        document.getElementById('camera-status').style.display = 'block';
-        
-        // Configurações do scanner
-        const config = {
-          fps: 10,
-          qrbox: { width: 250, height: 150 },
-          supportedScanTypes: [
-            Html5QrcodeScanType.SCAN_TYPE_CAMERA
-          ]
+    let zoomAplicacaoPendente=null;
+    let scannerPedido=0;
+    // Scanner: preservar a imagem original para que enquadramento e decodificação coincidam.
+    async function startScanner(){
+      const pedido=++scannerPedido;
+      const status=document.getElementById('camera-status');
+      const controle=document.getElementById('zoom-control');
+      status.textContent='Iniciando câmera...';
+      status.style.display='block';
+      controle.style.display='none';
+      try{
+        if(typeof Html5Qrcode==='undefined')throw new Error('Biblioteca do scanner não foi carregada');
+        // A área de leitura cresce de acordo com o vídeo: útil para etiquetas CODE128 compridas.
+        const config={
+          fps:12,
+          qrbox:(largura,altura)=>({
+            width:Math.max(1,Math.min(largura-4,Math.floor(largura*0.94),560)),
+            height:Math.max(1,Math.min(altura-4,Math.floor(altura*0.58),180))
+          }),
+          supportedScanTypes:[Html5QrcodeScanType.SCAN_TYPE_CAMERA]
         };
-
-        // Criar instância do scanner
-        html5QrCode = new Html5Qrcode("reader");
-        
-        // Obter câmeras disponíveis
-        const cameras = await Html5Qrcode.getCameras();
-        if (cameras.length === 0) {
-          throw new Error('Nenhuma câmera encontrada');
+        const scanner=new Html5Qrcode('reader');
+        html5QrCode=scanner;
+        // facingMode evita assumir que a primeira câmera enumerada é a traseira.
+        try{
+          await scanner.start({facingMode:'environment'},config,onScanSuccess,onScanFailure);
+        }catch(erroAmbiente){
+          if(pedido!==scannerPedido)return;
+          // Compatibilidade: alguns navegadores exigem um identificador de câmera.
+          const cameras=await Html5Qrcode.getCameras();
+          if(!cameras.length)throw erroAmbiente;
+          const preferidas=cameras.filter(c=>/back|rear|traseira|environment|ambiente/i.test(c.label||''));
+          preferidas.sort((a,b)=>{
+            const pontuar=c=>/ultra.?wide|macro|telephoto|frontal|front/i.test(c.label||'')?1:0;
+            return pontuar(a)-pontuar(b);
+          });
+          await scanner.start((preferidas[0]||cameras[0]).id,config,onScanSuccess,onScanFailure);
         }
-
-        // Tentar usar a câmera traseira primeiro, senão usar a primeira disponível
-        const backCamera = cameras.find(camera => 
-          camera.label.toLowerCase().includes('back') || 
-          camera.label.toLowerCase().includes('rear') ||
-          camera.label.toLowerCase().includes('traseira')
-        );
-        
-        const cameraId = backCamera ? backCamera.id : cameras[0].id;
-        
-        // Iniciar o scanner
-        await html5QrCode.start(
-          cameraId,
-          config,
-          onScanSuccess,
-          onScanFailure
-        );
-        
-        console.log('Scanner iniciado com sucesso');
+        if(pedido!==scannerPedido){
+          // Fechou a janela durante a inicialização: solta a câmera após completar a abertura.
+          try{if(scanner.isScanning)await scanner.stop();await scanner.clear();}catch(e){}
+          if(html5QrCode===scanner)html5QrCode=null;
+          return;
+        }
+        status.textContent='Scanner ativo';
         configurarZoomCamera();
-        
-      } catch (error) {
-        console.error('Erro ao iniciar scanner:', error);
-        alert('Erro ao acessar a câmera: ' + error.message);
-        stopScanner();
+      }catch(error){
+        if(pedido!==scannerPedido)return;
+        console.error('Erro ao iniciar scanner:',error);
+        status.style.display='none';
+        document.getElementById('scanner-modal').style.display='none';
+        alert('Não foi possível acessar a câmera: '+(error?.message||String(error)));
+        await stopScanner();
       }
     }
 
-    let zoomOpticoMax=1, zoomOpticoMin=1, zoomDigitalAtual=1;
+    // Somente zoom nativo: ampliar o elemento <video> por CSS não melhora a imagem decodificada.
     function configurarZoomCamera(){
       const controle=document.getElementById('zoom-control');
       const slider=document.getElementById('zoom-slider');
       const dica=document.getElementById('zoom-hint');
-      zoomOpticoMax=1;zoomOpticoMin=1;zoomDigitalAtual=1;
-      document.getElementById('reader').style.setProperty('--scanner-digital-zoom','1');
       try{
-        const caps=html5QrCode?.getRunningTrackCapabilities?.();
-        if(caps?.zoom){zoomOpticoMin=Number(caps.zoom.min)||1;zoomOpticoMax=Number(caps.zoom.max)||1;}
-      }catch(err){console.warn('Zoom óptico indisponível:',err);}
-      slider.min='1';slider.max=String(Math.max(4,zoomOpticoMax));slider.step='0.1';slider.value='1';
-      dica.textContent=zoomOpticoMax>1?`Zoom da câmera até ${zoomOpticoMax.toFixed(1)}×; acima disso, ampliação digital.`:'Ampliação digital (a qualidade depende da câmera).';
-      controle.style.display='block';
-    }
-    document.getElementById('zoom-slider').addEventListener('input',async e=>{
-      if(!html5QrCode?.isScanning)return;
-      const solicitado=Number(e.target.value);
-      const optico=Math.min(Math.max(solicitado,zoomOpticoMin),zoomOpticoMax);
-      let efetivo=1;
-      if(zoomOpticoMax>1){
-        try{await html5QrCode.applyVideoConstraints({advanced:[{zoom:optico}]});efetivo=optico;}
-        catch(err){console.warn('Zoom nativo não aplicado:',err);}
+        const capacidades=html5QrCode?.getRunningTrackCapabilities?.();
+        const zoom=capacidades?.zoom;
+        if(!zoom || !Number.isFinite(Number(zoom.max)) || Number(zoom.max)<=Number(zoom.min)){
+          controle.style.display='block';
+          slider.style.display='none';
+          dica.textContent='Zoom nativo indisponível neste navegador. Aproxime ou afaste a câmera mantendo a etiqueta em foco.';
+          return;
+        }
+        const min=Number(zoom.min);
+        const max=Number(zoom.max);
+        let atual=min;
+        try{
+          const config=html5QrCode.getRunningTrackSettings?.();
+          if(Number.isFinite(Number(config?.zoom)))atual=Number(config.zoom);
+        }catch(e){}
+        slider.min=String(min);
+        slider.max=String(max);
+        slider.step=String(zoom.step||0.1);
+        slider.value=String(Math.min(max,Math.max(min,atual)));
+        slider.style.display='block';
+        dica.textContent=`Zoom real da câmera: ${min.toFixed(1)}× até ${max.toFixed(1)}×. Evite ampliar além do necessário.`;
+        controle.style.display='block';
+      }catch(e){
+        controle.style.display='none';
+        console.warn('Configurações de zoom indisponíveis:',e);
       }
-      zoomDigitalAtual=Math.max(1,solicitado/efetivo);
-      document.getElementById('reader').style.setProperty('--scanner-digital-zoom',String(zoomDigitalAtual));
+    }
+
+    document.getElementById('zoom-slider').addEventListener('input',e=>{
+      if(zoomAplicacaoPendente)clearTimeout(zoomAplicacaoPendente);
+      const scanner=html5QrCode;
+      const valor=Number(e.target.value);
+      zoomAplicacaoPendente=setTimeout(async()=>{
+        zoomAplicacaoPendente=null;
+        if(!scanner?.isScanning || scanner!==html5QrCode)return;
+        try{
+          await scanner.applyVideoConstraints({advanced:[{zoom:valor}]});
+        }catch(erro){
+          console.warn('Não foi possível aplicar o zoom nativo:',erro);
+          document.getElementById('zoom-hint').textContent='O navegador não permitiu ajustar o zoom desta câmera.';
+        }
+      },100);
     });
     function ajustarModalScannerAoTeclado(){
       const viewport=window.visualViewport;
@@ -1458,19 +1486,18 @@
       // Falhas de decodificação durante a busca são esperadas e ignoradas.
     }
 
-    async function stopScanner() {
-      try {
-        if (html5QrCode && html5QrCode.isScanning) {
-          await html5QrCode.stop();
-          await html5QrCode.clear();
-          html5QrCode = null;
-        }
-        document.getElementById('camera-status').style.display = 'none';
-        document.getElementById('zoom-control').style.display = 'none';
-        console.log('Scanner parado');
-      } catch (error) {
-        console.warn('Erro ao parar scanner:', error);
-      }
+    async function stopScanner(){
+      ++scannerPedido;
+      if(zoomAplicacaoPendente){clearTimeout(zoomAplicacaoPendente);zoomAplicacaoPendente=null;}
+      const scanner=html5QrCode;
+      html5QrCode=null;
+      document.getElementById('camera-status').style.display='none';
+      document.getElementById('zoom-control').style.display='none';
+      try{
+        if(scanner?.isScanning)await scanner.stop();
+        // Se ainda estiver iniciando, a própria rotina startScanner encerrará a câmera.
+        if(scanner && !scanner.isScanning){await scanner.clear();}
+      }catch(error){console.warn('Erro ao fechar scanner:',error);}
     }
 
     // Função para limpar todos os filtros
