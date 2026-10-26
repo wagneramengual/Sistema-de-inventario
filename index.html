@@ -105,6 +105,23 @@
       .filtro-marcados-pill{width:100%;max-width:360px;justify-content:center;text-align:center;font-size:.84rem}
       .acoes-filtros-etiquetas{gap:9px}
     }
+  
+    .confirm-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2100;align-items:center;justify-content:center;padding:16px}
+    .confirm-modal-content{background:#fff;border-radius:14px;max-width:min(92vw,460px);width:100%;padding:22px 20px;box-shadow:0 16px 42px rgba(0,0,0,.22);text-align:center}
+    .confirm-modal-title{font-size:1.3rem;font-weight:800;letter-spacing:.02em;color:#dc3545;margin-bottom:10px}
+    .confirm-modal-text{font-size:1.08rem;line-height:1.4;color:#212529;margin-bottom:8px}
+    .confirm-modal-numero{display:inline-block;font-size:1.28rem;font-weight:800;color:#000;background:#f8f9fa;border:1px solid #dee2e6;border-radius:10px;padding:8px 14px;margin:8px 0 14px}
+    .confirm-modal-subtext{font-size:.98rem;color:#495057;margin-bottom:18px}
+    .confirm-modal-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    .confirm-modal-actions .btn{min-width:145px}
+    @media(max-width:767.98px){
+      .confirm-modal-content{padding:18px 16px}
+      .confirm-modal-title{font-size:1.18rem}
+      .confirm-modal-text{font-size:1rem}
+      .confirm-modal-numero{font-size:1.18rem;width:100%}
+      .confirm-modal-actions .btn{flex:1 1 130px}
+    }
+
   </style>
 </head>
 <body>
@@ -288,7 +305,21 @@
     </div>
   </div>
 
-  <script>
+  
+  <div id="modal-confirmacao-fora" class="confirm-modal" aria-hidden="true">
+    <div class="confirm-modal-content" role="dialog" aria-modal="true" aria-labelledby="confirm-fora-titulo">
+      <div id="confirm-fora-titulo" class="confirm-modal-title">FORA DA LISTA</div>
+      <div class="confirm-modal-text">O patrimônio abaixo não consta na lista carregada:</div>
+      <div id="confirm-fora-numero" class="confirm-modal-numero">000000</div>
+      <div class="confirm-modal-subtext">Deseja confirmar o registro deste item como <strong>fora da lista</strong>?</div>
+      <div class="confirm-modal-actions">
+        <button type="button" id="btn-confirmar-fora-cancelar" class="btn btn-outline-secondary">Cancelar</button>
+        <button type="button" id="btn-confirmar-fora-ok" class="btn btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+<script>
     let dadosPlanilha=[],foraDaLista=[],processedSet=new Set();
     let indicePatrimonio=new Map();
     let estatisticasCache={total:0,localizados:0,antigos:0,processados:0,naoLocalizados:0,fora:0,centros:0,percentual:0};
@@ -762,6 +793,46 @@
     }
 
     let confirmacaoForaEmAndamento=false;
+
+    function confirmarRegistroForaDaLista(numero){
+      return new Promise(resolve=>{
+        const modal=document.getElementById('modal-confirmacao-fora');
+        const numeroEl=document.getElementById('confirm-fora-numero');
+        const btnCancelar=document.getElementById('btn-confirmar-fora-cancelar');
+        const btnOk=document.getElementById('btn-confirmar-fora-ok');
+        const focoAnterior=document.activeElement;
+        numeroEl.textContent=numero;
+        modal.style.display='flex';
+        modal.setAttribute('aria-hidden','false');
+
+        const finalizar=(valor)=>{
+          modal.style.display='none';
+          modal.setAttribute('aria-hidden','true');
+          btnCancelar.removeEventListener('click',onCancel);
+          btnOk.removeEventListener('click',onOk);
+          modal.removeEventListener('click',onBackdrop);
+          document.removeEventListener('keydown',onKeydown,true);
+          if(focoAnterior&&typeof focoAnterior.focus==='function'){
+            setTimeout(()=>focoAnterior.focus(),0);
+          }
+          resolve(valor);
+        };
+        const onCancel=()=>finalizar(false);
+        const onOk=()=>finalizar(true);
+        const onBackdrop=(e)=>{ if(e.target===modal) finalizar(false); };
+        const onKeydown=(e)=>{
+          if(modal.style.display!=='flex') return;
+          if(e.key==='Escape'){ e.preventDefault(); finalizar(false); }
+          else if(e.key==='Enter'){ e.preventDefault(); finalizar(true); }
+        };
+
+        btnCancelar.addEventListener('click',onCancel);
+        btnOk.addEventListener('click',onOk);
+        modal.addEventListener('click',onBackdrop);
+        document.addEventListener('keydown',onKeydown,true);
+        setTimeout(()=>btnOk.focus(),0);
+      });
+    }
     function processarNumero(num){
       const numero=normalizeWithZeroTrim(num);
       if(!numero)return;
@@ -818,7 +889,7 @@
         if(confirmacaoForaEmAndamento)return;
         confirmacaoForaEmAndamento=true;
         let confirmado=false;
-        try{confirmado=window.confirm(`O patrimônio <strong> ${numero} </strong>não consta na lista carregada.\n\nDeseja registrar como <strong>FORA DA LISTA</strong>?`);}
+        try{confirmado=window.confirm(`O patrimônio ${numero} não consta na lista carregada.\n\nDeseja registrar como FORA DA LISTA?`);}
         finally{confirmacaoForaEmAndamento=false;}
         if(!confirmado){
           ultimoScanBruto={numero,timestamp:Date.now()};
@@ -1047,7 +1118,24 @@
         .patrimonio{height:7.55mm;display:flex;align-items:center;justify-content:center;padding-bottom:.2mm;font-family:Arial,Helvetica,sans-serif;font-size:20pt;font-weight:700;line-height:.9;letter-spacing:.15mm;white-space:nowrap}
         @media screen{body{background:#ddd}.etiqueta{margin:8mm auto;box-shadow:0 0 2mm rgba(0,0,0,.25)}}
         @media print{body{background:#fff}.etiqueta{margin:0;box-shadow:none}}
-      </style></head><body>${etiquetas}<script>window.onload=()=>{setTimeout(()=>window.print(),250)}<\/script></body></html>`);
+      
+    .confirm-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2100;align-items:center;justify-content:center;padding:16px}
+    .confirm-modal-content{background:#fff;border-radius:14px;max-width:min(92vw,460px);width:100%;padding:22px 20px;box-shadow:0 16px 42px rgba(0,0,0,.22);text-align:center}
+    .confirm-modal-title{font-size:1.3rem;font-weight:800;letter-spacing:.02em;color:#dc3545;margin-bottom:10px}
+    .confirm-modal-text{font-size:1.08rem;line-height:1.4;color:#212529;margin-bottom:8px}
+    .confirm-modal-numero{display:inline-block;font-size:1.28rem;font-weight:800;color:#000;background:#f8f9fa;border:1px solid #dee2e6;border-radius:10px;padding:8px 14px;margin:8px 0 14px}
+    .confirm-modal-subtext{font-size:.98rem;color:#495057;margin-bottom:18px}
+    .confirm-modal-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    .confirm-modal-actions .btn{min-width:145px}
+    @media(max-width:767.98px){
+      .confirm-modal-content{padding:18px 16px}
+      .confirm-modal-title{font-size:1.18rem}
+      .confirm-modal-text{font-size:1rem}
+      .confirm-modal-numero{font-size:1.18rem;width:100%}
+      .confirm-modal-actions .btn{flex:1 1 130px}
+    }
+
+  </style></head><body>${etiquetas}<script>window.onload=()=>{setTimeout(()=>window.print(),250)}<\/script></body></html>`);
       janela.document.close();
     }
 
@@ -1092,7 +1180,24 @@
         table{width:100%;border-collapse:collapse;font-size:9pt}
         th,td{border:1px solid #999;padding:4px 6px;text-align:left;word-break:break-word}
         thead th{background:#eee}
-      </style></head><body>
+      
+    .confirm-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:2100;align-items:center;justify-content:center;padding:16px}
+    .confirm-modal-content{background:#fff;border-radius:14px;max-width:min(92vw,460px);width:100%;padding:22px 20px;box-shadow:0 16px 42px rgba(0,0,0,.22);text-align:center}
+    .confirm-modal-title{font-size:1.3rem;font-weight:800;letter-spacing:.02em;color:#dc3545;margin-bottom:10px}
+    .confirm-modal-text{font-size:1.08rem;line-height:1.4;color:#212529;margin-bottom:8px}
+    .confirm-modal-numero{display:inline-block;font-size:1.28rem;font-weight:800;color:#000;background:#f8f9fa;border:1px solid #dee2e6;border-radius:10px;padding:8px 14px;margin:8px 0 14px}
+    .confirm-modal-subtext{font-size:.98rem;color:#495057;margin-bottom:18px}
+    .confirm-modal-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+    .confirm-modal-actions .btn{min-width:145px}
+    @media(max-width:767.98px){
+      .confirm-modal-content{padding:18px 16px}
+      .confirm-modal-title{font-size:1.18rem}
+      .confirm-modal-text{font-size:1rem}
+      .confirm-modal-numero{font-size:1.18rem;width:100%}
+      .confirm-modal-actions .btn{flex:1 1 130px}
+    }
+
+  </style></head><body>
         <header>
           <h1>Defensoria Pública RS — Lista de Inventário Patrimonial</h1>
           <p>${escapeHtml(resumoFiltros)}</p>
