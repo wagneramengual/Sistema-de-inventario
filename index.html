@@ -818,7 +818,7 @@
         if(confirmacaoForaEmAndamento)return;
         confirmacaoForaEmAndamento=true;
         let confirmado=false;
-        try{confirmado=window.confirm(`O patrimônio ${numero} não consta na lista carregada.\n\nDeseja registrar como FORA DA LISTA?`);}
+        try{confirmado=window.confirm(`O patrimônio <b> ${numero} </b>não consta na lista carregada.\n\nDeseja registrar como <b>FORA DA LISTA</b>?`);}
         finally{confirmacaoForaEmAndamento=false;}
         if(!confirmado){
           ultimoScanBruto={numero,timestamp:Date.now()};
