@@ -37,6 +37,17 @@
     .label-check{width:1.25rem;height:1.25rem;cursor:pointer}
     .table-container{max-height:82vh;min-height:440px;overflow:auto;border:1px solid #e6e6e6;border-radius:8px;background:#fff;margin-top:18px}
     thead th{position:sticky;top:0;background:#0d6efd;color:#fff;z-index:10}
+    #tabela-container thead th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+    #tabela-container thead th.sortable:focus-visible{outline:3px solid #ffc107;outline-offset:-3px}
+    #tabela-container thead th.sortable::after{content:' ↕';opacity:.65;font-size:.8em}
+    #tabela-container thead th.sortable[aria-sort="ascending"]::after{content:' ▲';opacity:1}
+    #tabela-container thead th.sortable[aria-sort="descending"]::after{content:' ▼';opacity:1}
+    #scanner-modal{height:var(--scanner-viewport-height,100dvh);top:var(--scanner-viewport-top,0px);bottom:auto;align-items:center;overflow-y:auto;padding:8px}
+    #scanner-modal .scanner-content{max-height:calc(var(--scanner-viewport-height,100dvh) - 16px);overflow-y:auto;width:min(96%,680px)}
+    #reader{height:min(360px,38dvh);overflow:hidden}
+    #reader video{transform:scale(var(--scanner-digital-zoom,1));transform-origin:center center}
+    @media(max-height:530px){#reader{height:170px}#scanner-modal .scanner-content{padding:8px}}
+    .zoom-hint{font-size:.75rem;color:#6c757d}
     #tabela-container tbody td{padding-top:5px;padding-bottom:5px;vertical-align:middle}
     #tabela-container .label-check{width:1.2rem;height:1.2rem}
     .etiqueta-click{display:flex;align-items:center;justify-content:center;min-height:30px;cursor:pointer}
@@ -148,13 +159,13 @@
     <table class="table table-hover mb-0">
       <thead>
         <tr>
-          <th>Registro Patrimonial</th>
-          <th>Registro Antigo</th>
-          <th>Descrição</th>
-          <th>Status</th>
-          <th>Observação</th>
-          <th class="text-center">Imprimir etiqueta</th>
-          <th>Data/Hora</th>
+          <th class="sortable" data-sort="patrimonio" tabindex="0" role="button">Registro Patrimonial</th>
+          <th class="sortable" data-sort="antigo" tabindex="0" role="button">Registro Antigo</th>
+          <th class="sortable" data-sort="descricao" tabindex="0" role="button">Descrição</th>
+          <th class="sortable" data-sort="status" tabindex="0" role="button">Status</th>
+          <th class="sortable" data-sort="observacao" tabindex="0" role="button">Observação</th>
+          <th class="sortable text-center" data-sort="imprimirEtiqueta" tabindex="0" role="button">Imprimir etiqueta</th>
+          <th class="sortable" data-sort="dataHora" tabindex="0" role="button">Data/Hora</th>
         </tr>
       </thead>
       <tbody id="tabela-body"></tbody>
@@ -192,7 +203,8 @@
       <div id="reader"></div>
       <div id="zoom-control" class="mt-2 px-2" style="display:none">
         <label for="zoom-slider" class="form-label small mb-0 text-muted">🔍 Zoom da câmera</label>
-        <input type="range" id="zoom-slider" class="form-range">
+        <input type="range" id="zoom-slider" class="form-range" min="1" max="4" step="0.1" value="1">
+        <div id="zoom-hint" class="zoom-hint">Zoom disponível conforme o aparelho</div>
       </div>
       <div class="mt-3">
         <button id="close-scanner" class="btn btn-danger">Fechar</button>
@@ -693,6 +705,7 @@
       els.filtroSetor.innerHTML='<option value="">Todos</option>'+setores.map(s=>`<option>${s}</option>`).join('');
     }
 
+    let confirmacaoForaEmAndamento=false;
     function processarNumero(num){
       const numero=normalizeWithZeroTrim(num);
       if(!numero)return;
@@ -746,6 +759,18 @@
         }
         ultimaAcao={tipo:'planilha',uid:encontrado.uid,numero,statusAnterior,dataHoraAnterior,conferenteAnterior};
       }else{
+        if(confirmacaoForaEmAndamento)return;
+        confirmacaoForaEmAndamento=true;
+        let confirmado=false;
+        try{confirmado=window.confirm(`O patrimônio ${numero} não consta na lista carregada.\n\nDeseja registrar como FORA DA LISTA?`);}
+        finally{confirmacaoForaEmAndamento=false;}
+        if(!confirmado){
+          ultimoScanBruto={numero,timestamp:Date.now()};
+          mostrarFeedback('Registro fora da lista cancelado','info',false);
+          registrarAuditoria({numero,tipo:'invalido',detalhe:'Registro fora da lista não confirmado'});
+          salvarDados();
+          return;
+        }
         const tipoNumero=classificarNumeroFora(numero);
         const fora={uid:`fora-${Date.now()}-${numero}`,numero,tipoNumero,dataHora,status:'fora',observacao:'',imprimirEtiqueta:false,conferente:conferenteAtual.trim()||'Não informado'};
         foraDaLista.push(fora);
@@ -816,6 +841,33 @@
       return todos.filter(itemPassaFiltros);
     }
 
+    let ordenacaoTabela={campo:null,direcao:'asc'};
+    const compararPatrimonios=new Intl.Collator('pt-BR',{numeric:true,sensitivity:'base'});
+    function dataOrdenavel(valor){
+      const m=String(valor||'').match(/^(\d{2})\/(\d{2})\/(\d{4})(?:,?\s+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+      return m?`${m[3]}${m[2]}${m[1]}${m[4]||'00'}${m[5]||'00'}${m[6]||'00'}`:'';
+    }
+    function ordenarItensVisiveis(itens){
+      if(!ordenacaoTabela.campo)return itens;
+      const {campo,direcao}=ordenacaoTabela;
+      const fator=direcao==='asc'?1:-1;
+      return itens.sort((a,b)=>{
+        let av=a.item[campo],bv=b.item[campo];
+        if(campo==='dataHora'){av=dataOrdenavel(av);bv=dataOrdenavel(bv);}
+        if(campo==='imprimirEtiqueta'){av=av?1:0;bv=bv?1:0;}
+        const resultado=typeof av==='number'&&typeof bv==='number'?av-bv:compararPatrimonios.compare(String(av??''),String(bv??''));
+        return resultado*fator || a.indice-b.indice;
+      });
+    }
+    document.querySelectorAll('#tabela-container thead th[data-sort]').forEach(th=>{
+      const acionar=()=>{
+        const campo=th.dataset.sort;
+        ordenacaoTabela=ordenacaoTabela.campo===campo?{campo,direcao:ordenacaoTabela.direcao==='asc'?'desc':'asc'}:{campo,direcao:campo==='dataHora'?'desc':'asc'};
+        atualizarTabela();
+      };
+      th.addEventListener('click',acionar);
+      th.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();acionar();}});
+    });
     function atualizarTabela(){
       const fragment=document.createDocumentFragment();
       let quantidadeVisivel=0;
@@ -844,16 +896,19 @@
         fragment.appendChild(tr);
       };
 
-      for(const i of dadosPlanilha)renderItem(i,false);
+      const itensParaRenderizar=[];
+      for(const i of dadosPlanilha)itensParaRenderizar.push({item:i,fora:false,indice:itensParaRenderizar.length});
       for(const f of foraDaLista){
         const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
-        renderItem({
+        itensParaRenderizar.push({item:{
           ...f,
           patrimonio:tipoNumero==='novo'?f.numero:'',
           antigo:tipoNumero==='antigo'?f.numero:'',
           descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-'
-        },true);
+        },fora:true,indice:itensParaRenderizar.length});
       }
+      ordenarItensVisiveis(itensParaRenderizar).forEach(({item,fora})=>renderItem(item,fora));
+      document.querySelectorAll('#tabela-container thead th[data-sort]').forEach(th=>{th.setAttribute('aria-sort',ordenacaoTabela.campo===th.dataset.sort?(ordenacaoTabela.direcao==='asc'?'ascending':'descending'):'none');});
 
       els.tabelaBody.replaceChildren(fragment);
       document.getElementById('contagem-visivel').textContent=`Exibindo ${quantidadeVisivel} de ${dadosPlanilha.length+foraDaLista.length} itens`;
@@ -1305,43 +1360,42 @@
       }
     }
 
-    // Detecta se a câmera ativa suporta zoom e configura o controle deslizante
+    let zoomOpticoMax=1, zoomOpticoMin=1, zoomDigitalAtual=1;
     function configurarZoomCamera(){
-      const zoomControl=document.getElementById('zoom-control');
-      const zoomSlider=document.getElementById('zoom-slider');
+      const controle=document.getElementById('zoom-control');
+      const slider=document.getElementById('zoom-slider');
+      const dica=document.getElementById('zoom-hint');
+      zoomOpticoMax=1;zoomOpticoMin=1;zoomDigitalAtual=1;
+      document.getElementById('reader').style.setProperty('--scanner-digital-zoom','1');
       try{
-        if(!html5QrCode||typeof html5QrCode.getRunningTrackCapabilities!=='function'){
-          zoomControl.style.display='none';
-          return;
-        }
-        const capabilities=html5QrCode.getRunningTrackCapabilities();
-        if(!capabilities||!capabilities.zoom){
-          zoomControl.style.display='none';
-          return;
-        }
-        const {min,max,step}=capabilities.zoom;
-        zoomSlider.min=min;
-        zoomSlider.max=max;
-        zoomSlider.step=step||0.1;
-        let valorInicial=min;
-        try{
-          const settings=html5QrCode.getRunningTrackSettings();
-          if(settings&&typeof settings.zoom==='number')valorInicial=settings.zoom;
-        }catch(e){/* configurações atuais indisponíveis, usa o mínimo */}
-        zoomSlider.value=valorInicial;
-        zoomControl.style.display='block';
-      }catch(e){
-        console.warn('Zoom não suportado nesta câmera/navegador:',e);
-        zoomControl.style.display='none';
-      }
+        const caps=html5QrCode?.getRunningTrackCapabilities?.();
+        if(caps?.zoom){zoomOpticoMin=Number(caps.zoom.min)||1;zoomOpticoMax=Number(caps.zoom.max)||1;}
+      }catch(err){console.warn('Zoom óptico indisponível:',err);}
+      slider.min='1';slider.max=String(Math.max(4,zoomOpticoMax));slider.step='0.1';slider.value='1';
+      dica.textContent=zoomOpticoMax>1?`Zoom da câmera até ${zoomOpticoMax.toFixed(1)}×; acima disso, ampliação digital.`:'Ampliação digital (a qualidade depende da câmera).';
+      controle.style.display='block';
     }
-
-    document.getElementById('zoom-slider').addEventListener('input',e=>{
-      if(!html5QrCode)return;
-      const valor=parseFloat(e.target.value);
-      html5QrCode.applyVideoConstraints({advanced:[{zoom:valor}]})
-        .catch(err=>console.warn('Erro ao aplicar zoom:',err));
+    document.getElementById('zoom-slider').addEventListener('input',async e=>{
+      if(!html5QrCode?.isScanning)return;
+      const solicitado=Number(e.target.value);
+      const optico=Math.min(Math.max(solicitado,zoomOpticoMin),zoomOpticoMax);
+      let efetivo=1;
+      if(zoomOpticoMax>1){
+        try{await html5QrCode.applyVideoConstraints({advanced:[{zoom:optico}]});efetivo=optico;}
+        catch(err){console.warn('Zoom nativo não aplicado:',err);}
+      }
+      zoomDigitalAtual=Math.max(1,solicitado/efetivo);
+      document.getElementById('reader').style.setProperty('--scanner-digital-zoom',String(zoomDigitalAtual));
     });
+    function ajustarModalScannerAoTeclado(){
+      const viewport=window.visualViewport;
+      const modal=document.getElementById('scanner-modal');
+      modal.style.setProperty('--scanner-viewport-height',`${viewport?.height||window.innerHeight}px`);
+      modal.style.setProperty('--scanner-viewport-top',`${viewport?.offsetTop||0}px`);
+    }
+    window.visualViewport?.addEventListener('resize',ajustarModalScannerAoTeclado);
+    window.visualViewport?.addEventListener('scroll',ajustarModalScannerAoTeclado);
+    window.addEventListener('resize',ajustarModalScannerAoTeclado);
 
     function onScanSuccess(decodedText, decodedResult) {
       console.log(`Código escaneado: ${decodedText}`);
@@ -1387,6 +1441,7 @@
 
     // Event Listeners
     document.getElementById('btn-scanner').onclick = () => {
+      ajustarModalScannerAoTeclado();
       document.getElementById('scanner-modal').style.display = 'flex';
       startScanner();
     };
