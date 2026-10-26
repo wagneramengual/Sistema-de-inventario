@@ -256,6 +256,12 @@
         <input type="range" id="zoom-slider" class="form-range" min="1" max="4" step="0.1" value="1">
         <div id="zoom-hint" class="zoom-hint">Zoom disponível conforme o aparelho</div>
       </div>
+      <div id="focus-control" class="mt-2 px-2" style="display:none">
+        <div class="d-flex gap-2 align-items-center justify-content-center flex-wrap">
+          <button id="btn-refocar" type="button" class="btn btn-outline-primary btn-sm" style="display:none">🎯 Refocar</button>
+          <span id="focus-hint" class="zoom-hint" role="status" aria-live="polite"></span>
+        </div>
+      </div>
       <div class="mt-3">
         <button id="close-scanner" class="btn btn-danger">Fechar</button>
       </div>
@@ -1365,6 +1371,8 @@
       status.textContent='Iniciando câmera...';
       status.style.display='block';
       controle.style.display='none';
+      document.getElementById('focus-control').style.display='none';
+      document.getElementById('btn-refocar').style.display='none';
       try{
         if(typeof Html5Qrcode==='undefined')throw new Error('Biblioteca do scanner não foi carregada');
         // A área de leitura cresce de acordo com o vídeo: útil para etiquetas CODE128 compridas.
@@ -1401,6 +1409,7 @@
         }
         status.textContent='Scanner ativo';
         configurarZoomCamera();
+        await configurarFocoCamera(scanner);
       }catch(error){
         if(pedido!==scannerPedido)return;
         console.error('Erro ao iniciar scanner:',error);
@@ -1444,6 +1453,70 @@
         console.warn('Configurações de zoom indisponíveis:',e);
       }
     }
+
+    // O navegador só permite controlar o foco quando a câmera expõe focusMode.
+    // Nunca forçar foco manual ou distância fixa: isso pode piorar leituras no celular.
+    async function configurarFocoCamera(scanner){
+      const controle=document.getElementById('focus-control');
+      const botao=document.getElementById('btn-refocar');
+      const dica=document.getElementById('focus-hint');
+      if(scanner!==html5QrCode || !scanner.isScanning)return;
+      controle.style.display='block';
+      botao.style.display='none';
+      dica.textContent='O foco depende da câmera e do navegador.';
+      try{
+        const capacidades=scanner.getRunningTrackCapabilities?.()||{};
+        const modos=Array.isArray(capacidades.focusMode)?capacidades.focusMode:[];
+        // Solicitar foco contínuo apenas se o dispositivo informar compatibilidade.
+        if(modos.includes('continuous')){
+          try{
+            await scanner.applyVideoConstraints({advanced:[{focusMode:'continuous'}]});
+            if(scanner!==html5QrCode || !scanner.isScanning)return;
+            dica.textContent='Foco automático contínuo ativado.';
+          }catch(error){
+            console.info('Foco contínuo não permitido pelo navegador:',error);
+            dica.textContent='Foco gerenciado automaticamente pelo celular.';
+          }
+        }else{
+          dica.textContent='Foco gerenciado pelo celular. Ajuste a distância lentamente.';
+        }
+        if(scanner===html5QrCode && scanner.isScanning && modos.includes('single-shot')){
+          botao.style.display='inline-block';
+        }
+      }catch(error){
+        console.info('Configurações de foco indisponíveis:',error);
+        dica.textContent='Foco gerenciado pelo celular. Mantenha a etiqueta iluminada.';
+      }
+    }
+
+    // Em aparelhos compatíveis, o botão pede uma nova busca de foco.
+    document.getElementById('btn-refocar').addEventListener('click',async()=>{
+      const scanner=html5QrCode;
+      const botao=document.getElementById('btn-refocar');
+      const dica=document.getElementById('focus-hint');
+      if(!scanner?.isScanning || botao.disabled)return;
+      botao.disabled=true;
+      try{
+        const modos=scanner.getRunningTrackCapabilities?.()?.focusMode||[];
+        if(!Array.isArray(modos)||!modos.includes('single-shot'))return;
+        await scanner.applyVideoConstraints({advanced:[{focusMode:'single-shot'}]});
+        if(scanner!==html5QrCode || !scanner.isScanning)return;
+        dica.textContent='Reajustando foco...';
+        if(modos.includes('continuous')){
+          await new Promise(resolve=>setTimeout(resolve,550));
+          if(scanner!==html5QrCode || !scanner.isScanning)return;
+          await scanner.applyVideoConstraints({advanced:[{focusMode:'continuous'}]});
+          dica.textContent='Foco automático contínuo reativado.';
+        }else{
+          dica.textContent='Nova tentativa de foco solicitada.';
+        }
+      }catch(error){
+        console.info('Não foi possível solicitar nova focalização:',error);
+        if(scanner===html5QrCode)dica.textContent='O navegador não permitiu reajustar o foco.';
+      }finally{
+        botao.disabled=false;
+      }
+    });
 
     document.getElementById('zoom-slider').addEventListener('input',e=>{
       if(zoomAplicacaoPendente)clearTimeout(zoomAplicacaoPendente);
@@ -1493,6 +1566,8 @@
       html5QrCode=null;
       document.getElementById('camera-status').style.display='none';
       document.getElementById('zoom-control').style.display='none';
+      document.getElementById('focus-control').style.display='none';
+      document.getElementById('btn-refocar').style.display='none';
       try{
         if(scanner?.isScanning)await scanner.stop();
         // Se ainda estiver iniciando, a própria rotina startScanner encerrará a câmera.
