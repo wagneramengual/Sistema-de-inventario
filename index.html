@@ -64,6 +64,47 @@
     .info-item{display:flex;align-items:center;margin-bottom:5px}
     .info-label{font-weight:600;min-width:120px;color:#1565c0}
     .info-value{flex:1;color:#37474f}
+
+    /* Compactação horizontal preservando a leitura de informações no mobile */
+    #tabela-container{margin-top:9px}
+    #tabela-container table{table-layout:fixed;width:100%;min-width:825px}
+    #tabela-container thead th:nth-child(1){width:12%}
+    #tabela-container thead th:nth-child(2){width:10%}
+    #tabela-container thead th:nth-child(3){width:23%}
+    #tabela-container thead th:nth-child(4){width:12%}
+    #tabela-container thead th:nth-child(5){width:19%}
+    #tabela-container thead th:nth-child(6){width:12%}
+    #tabela-container thead th:nth-child(7){width:12%}
+    #tabela-container thead th,#tabela-container tbody td{padding-left:6px;padding-right:6px;overflow-wrap:break-word}
+    #tabela-container thead th{white-space:normal!important;line-height:1.18;font-size:.87rem}
+    #tabela-container tbody td{line-height:1.23}
+    #tabela-container .obs-input{min-width:0;width:100%;padding:3px 5px;font-size:.84rem}
+    #tabela-container td:nth-child(7){font-size:.81rem}
+    /* Menu suspenso nativo: sem biblioteca JavaScript extra */
+    .menu-exportacao{position:relative;flex-shrink:0}
+    .menu-exportacao>summary{list-style:none;cursor:pointer;user-select:none}
+    .menu-exportacao>summary::-webkit-details-marker{display:none}
+    .menu-exportacao>summary:focus-visible{outline:3px solid #ffcf57;outline-offset:3px}
+    .menu-exportacao-opcoes{position:absolute;bottom:calc(100% + 5px);left:0;min-width:205px;display:flex;flex-direction:column;padding:5px;background:#fff;border:1px solid #c8d2de;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:120}
+    .menu-exportacao:not([open]) .menu-exportacao-opcoes{display:none}
+    .menu-exportacao-item{display:block;width:100%;border:0;border-radius:5px;background:#fff;padding:10px 12px;text-align:left;color:#212529;cursor:pointer}
+    .menu-exportacao-item:hover:not(:disabled),.menu-exportacao-item:focus-visible{background:#eaf3ff;color:#084298}
+    .menu-exportacao-item:disabled{color:#949ba3;cursor:not-allowed}
+    .acoes-filtros-etiquetas{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px 16px;border-top:1px solid #e6e9ed}
+    .filtro-marcados-pill{display:inline-flex;align-items:center;gap:8px;border:2px solid #b7c2d0;border-radius:9px;background:#f7f9fc;padding:7px 11px;cursor:pointer;font-weight:600;font-size:.9rem;transition:background .15s,border-color .15s;user-select:none}
+    .filtro-marcados-check{display:flex;align-items:center;justify-content:center;width:26px;height:26px;flex:0 0 26px;border:2px solid #64748b;border-radius:6px;background:#fff;color:transparent;font-size:22px;line-height:1;font-weight:900}
+    .filtro-etiqueta-input:checked + .filtro-marcados-check{background:#137a3b;border-color:#137a3b;color:#fff}
+    .filtro-marcados-pill:has(.filtro-etiqueta-input:checked){background:#e7f7ec;border-color:#137a3b;color:#12552b}
+    .filtro-etiqueta-input:focus-visible + .filtro-marcados-check{outline:3px solid #80bdff;outline-offset:2px}
+    @media(max-width:767.98px){
+      #tabela-container table{min-width:735px}
+      #tabela-container thead th,#tabela-container tbody td{padding-left:4px;padding-right:4px}
+      #tabela-container thead th{font-size:.77rem}
+      #tabela-container tbody td{font-size:.8rem;line-height:1.16}
+      #tabela-container .obs-input{min-width:0;width:100%;font-size:.79rem;padding:2px 4px}
+      .filtro-marcados-pill{width:100%;max-width:360px;justify-content:center;text-align:center;font-size:.84rem}
+      .acoes-filtros-etiquetas{gap:9px}
+    }
   </style>
 </head>
 <body>
@@ -146,12 +187,11 @@
   </div>
 
   <div class="row g-2 g-md-3 mb-3 text-center">
-    <div class="col-4 col-md-2"><div class="counter-card bg-primary" data-filter=""><div>Total</div><div id="total-bens">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-success" data-filter="localizado"><div>Localizados</div><div id="total-localizados">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-info" data-filter="antigo"><div>Etiqueta Antiga</div><div id="total-antigos">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-secondary" data-filter="nao-localizado"><div>Não Localizado</div><div id="total-nao">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-warning text-dark" data-filter="fora"><div>Fora da Lista</div><div id="total-fora">0</div></div></div>
-    <div class="col-4 col-md-2"><div class="counter-card bg-dark"><div>Centros</div><div id="total-centros">0</div></div></div>
+    <div class="col-4 col-md"><div class="counter-card bg-primary" data-filter=""><div>Total</div><div id="total-bens">0</div></div></div>
+    <div class="col-4 col-md"><div class="counter-card bg-success" data-filter="localizado"><div>Localizados</div><div id="total-localizados">0</div></div></div>
+    <div class="col-4 col-md"><div class="counter-card bg-info" data-filter="antigo"><div>Etiqueta Antiga</div><div id="total-antigos">0</div></div></div>
+    <div class="col-4 col-md"><div class="counter-card bg-secondary" data-filter="nao-localizado"><div>Não Localizado</div><div id="total-nao">0</div></div></div>
+    <div class="col-4 col-md"><div class="counter-card bg-warning text-dark" data-filter="fora"><div>Fora da Lista</div><div id="total-fora">0</div></div></div>
   </div>
 
 
@@ -172,23 +212,33 @@
     </table>
   </div>
 
-  <div class="text-center my-3 d-flex flex-wrap justify-content-center align-items-center gap-2">
-    <button id="btn-exportar" class="btn btn-primary" disabled>Exportar Excel</button>
-    <button id="btn-exportar-pdf" class="btn btn-danger" disabled>Exportar PDF</button>
-    <button id="btn-imprimir-lista" class="btn btn-outline-dark" disabled>🖨️ Imprimir lista filtrada</button>
-    <button id="btn-imprimir-etiquetas" class="btn btn-dark" disabled>🖨️ Imprimir etiquetas selecionadas (0)</button>
-  <div class="card p-2 mb-2"><label class="form-check-label"><input type="checkbox" class="form-check-input me-2" id="filtro-etiqueta">Somente marcados para imprimir etiqueta</label><div id="resumo-filtros" aria-live="polite"></div><div class="d-flex flex-wrap gap-2 align-items-center"><span id="contagem-visivel" class="text-muted small"></span><label class="form-check-label small ms-auto"><input type="checkbox" id="imprimir-apenas-filtrados" class="form-check-input me-1">Imprimir somente etiquetas filtradas</label></div></div>
-    <div class="export-options">
-      <div class="form-check form-check-inline">
-        <input class="form-check-input" type="checkbox" id="export-completo" checked>
-        <label class="form-check-label" for="export-completo">Dados completos</label>
-      </div>
-      <div class="form-check form-check-inline">
-        <input class="form-check-input" type="checkbox" id="export-processados" checked>
-        <label class="form-check-label" for="export-processados">Apenas processados</label>
-      </div>
+  <section class="card p-2 p-md-3 my-3" aria-label="Exportação e impressão">
+    <div class="d-flex flex-wrap justify-content-center align-items-center gap-2">
+      <details id="menu-exportacao" class="menu-exportacao">
+        <summary class="btn btn-primary" aria-label="Abrir opções de exportação">⬇ Exportar <span aria-hidden="true">▾</span></summary>
+        <div class="menu-exportacao-opcoes" role="group" aria-label="Formatos de exportação">
+          <button id="btn-exportar" class="menu-exportacao-item" type="button" disabled>Exportar Excel (.xlsx)</button>
+          <button id="btn-exportar-pdf" class="menu-exportacao-item" type="button" disabled>Exportar PDF (.pdf)</button>
+        </div>
+      </details>
+      <button id="btn-imprimir-lista" class="btn btn-outline-dark" disabled>🖨️ Imprimir lista filtrada</button>
+      <button id="btn-imprimir-etiquetas" class="btn btn-dark" disabled>🖨️ Imprimir etiquetas selecionadas (0)</button>
     </div>
-  </div>
+    <div class="acoes-filtros-etiquetas mt-3 pt-2">
+      <label class="filtro-marcados-pill" for="filtro-etiqueta">
+        <input type="checkbox" id="filtro-etiqueta" class="filtro-etiqueta-input visually-hidden">
+        <span class="filtro-marcados-check" aria-hidden="true">✓</span>
+        <span>Somente marcados para imprimir etiqueta</span>
+      </label>
+      <label class="filtro-marcados-pill" for="imprimir-apenas-filtrados">
+        <input type="checkbox" id="imprimir-apenas-filtrados" class="filtro-etiqueta-input visually-hidden">
+        <span class="filtro-marcados-check" aria-hidden="true">✓</span>
+        <span>Imprimir somente etiquetas filtradas</span>
+      </label>
+      <span id="contagem-visivel" class="text-muted small" aria-live="polite"></span>
+    </div>
+    <div id="resumo-filtros" aria-live="polite"></div>
+  </section>
 
   <!-- Rodapé Developer -->
   <div class="footer-developer">
@@ -1070,7 +1120,8 @@
       document.getElementById('total-antigos').innerText=stats.antigos;
       document.getElementById('total-fora').innerText=stats.fora;
       document.getElementById('total-nao').innerText=stats.naoLocalizados;
-      document.getElementById('total-centros').innerText=stats.centros;
+      const contadorCentros=document.getElementById('total-centros');
+      if(contadorCentros)contadorCentros.innerText=stats.centros;
     }
 
     function atualizarProgresso(stats=estatisticasCache){
@@ -1202,23 +1253,17 @@
     }
 
     function exportarExcel(){
-      const exportCompleto=document.getElementById('export-completo').checked;
-      const exportProcessados=document.getElementById('export-processados').checked;
-      let dadosExportar=[...dadosPlanilha];
-
-      if(exportCompleto){
-        dadosExportar.push(...foraDaLista.map(f=>{
-          const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
-          return {
-            patrimonio:tipoNumero==='novo'?f.numero:'',
-            antigo:tipoNumero==='antigo'?f.numero:'',
-            descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-',status:'fora',dataHora:f.dataHora,
-            observacao:f.observacao||'',imprimirEtiqueta:Boolean(f.imprimirEtiqueta),abaOrigem:'Fora da lista'
-          };
-        }));
-      }
-
-      if(exportProcessados)dadosExportar=dadosExportar.filter(item=>item.dataHora);
+      // Preserva o comportamento padrão anterior: exportar os itens processados
+      // incluindo registros encontrados fora da lista.
+      const dadosExportar=[...dadosPlanilha,...foraDaLista.map(f=>{
+        const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
+        return {
+          patrimonio:tipoNumero==='novo'?f.numero:'',
+          antigo:tipoNumero==='antigo'?f.numero:'',
+          descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-',status:'fora',dataHora:f.dataHora,
+          observacao:f.observacao||'',imprimirEtiqueta:Boolean(f.imprimirEtiqueta),abaOrigem:'Fora da lista'
+        };
+      })].filter(item=>item.dataHora);
 
       const linhas=dadosExportar.map(item=>({
         'Registro Patrimonial':item.patrimonio,
@@ -1523,8 +1568,12 @@
       }
     });
     document.getElementById('btn-registrar').addEventListener('click',registrarNumeroDigitado);
-    els.btnExport.onclick=exportarExcel;
-    els.btnPdf.onclick=exportarPDF;
+    els.btnExport.onclick=()=>{document.getElementById('menu-exportacao').open=false;exportarExcel();};
+    els.btnPdf.onclick=()=>{document.getElementById('menu-exportacao').open=false;exportarPDF();};
+    document.addEventListener('click',e=>{
+      const menu=document.getElementById('menu-exportacao');
+      if(menu.open&&!menu.contains(e.target))menu.open=false;
+    });
     els.btnImprimirLista.onclick=imprimirListaFiltrada;
     els.btnImprimirEtiquetas.onclick=imprimirEtiquetasSelecionadas;
 
