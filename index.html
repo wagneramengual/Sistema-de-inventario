@@ -8,6 +8,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
@@ -122,6 +123,23 @@
       .confirm-modal-actions .btn{flex:1 1 130px}
     }
 
+
+    .modo-diligencia-controle{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:.91rem}
+    .modo-diligencia-controle .form-check-input{width:2.55rem;height:1.32rem;cursor:pointer}
+    .modo-diligencia-controle .form-check-label{cursor:pointer;font-weight:650}
+    .faixa-diligencia{display:none;background:#fff3cd;border:1px solid #ffda6a;border-radius:7px;color:#664d03;padding:8px 12px;font-size:.85rem;margin-top:8px}
+    .foto-badge{border-radius:5px;font-size:.75rem;font-weight:700;padding:3px 6px;display:inline-flex;align-items:center;gap:4px;white-space:normal;text-align:left}
+    button.foto-badge{cursor:pointer;border:1px solid transparent}
+    .foto-pendente{background:#fff3cd;color:#805100;border-color:#eed28d!important}
+    .foto-registrada{background:#d1e7dd;color:#0f5132;border-color:#a3cfbb!important}
+    #btn-fotos-pendentes[aria-pressed="true"]{color:#000;background:#ffc107;border-color:#ffc107;font-weight:700}
+    .modal-foto{display:none;position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:2200;align-items:center;justify-content:center;padding:12px}
+    .modal-foto-conteudo{background:#fff;border-radius:13px;width:min(96vw,490px);max-height:calc(100dvh - 24px);overflow-y:auto;padding:20px;box-shadow:0 14px 38px rgba(0,0,0,.25)}
+    .modal-foto-titulo{font-size:1.3rem;font-weight:800;color:#7b5200;margin-bottom:8px}
+    .modal-foto-numero{font-size:1.48rem;font-weight:800;color:#111;letter-spacing:.03em}
+    .modal-foto-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .modal-foto-acoes .btn{flex:1 1 140px}
+    @media(max-width:767.98px){.modal-foto-conteudo{padding:16px}.modal-foto-numero{font-size:1.25rem}.foto-badge{font-size:.7rem}}
   </style>
 </head>
 <body>
@@ -182,6 +200,14 @@
 
 
   <div class="card p-3 mb-3">
+    <div class="modo-diligencia-controle mb-2">
+      <div class="form-check form-switch m-0 d-flex align-items-center gap-2">
+        <input class="form-check-input mt-0" type="checkbox" role="switch" id="modo-nao-localizados">
+        <label class="form-check-label" for="modo-nao-localizados">Modo Não Localizados</label>
+      </div>
+      <span class="text-muted small">Ative ao trabalhar com uma relação de procura/diligência.</span>
+    </div>
+    <div id="faixa-diligencia" class="faixa-diligencia" role="status"><strong>Modo Não Localizados ativo:</strong> leituras que não estão na planilha serão avisadas em amarelo como “Fora da Diligência”, sem registro como bem.</div>
     <label class="form-label fw-bold">Digite ou escaneie o número</label>
     <div class="input-group">
       <input id="numero-patrimonio" class="form-control text-center" placeholder="Digite ou escaneie aqui..." inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -212,6 +238,9 @@
   </div>
 
 
+  <div class="d-flex justify-content-end align-items-center gap-2 mb-1 flex-wrap">
+    <button id="btn-fotos-pendentes" class="btn btn-outline-warning btn-sm" type="button" aria-pressed="false">📷 Fotos pendentes (0)</button>
+  </div>
   <div id="tabela-container" class="table-container d-none">
     <table class="table table-hover mb-0">
       <thead>
@@ -234,8 +263,10 @@
       <details id="menu-exportacao" class="menu-exportacao">
         <summary class="btn btn-primary" aria-label="Abrir opções de exportação">⬇ Exportar <span aria-hidden="true">▾</span></summary>
         <div class="menu-exportacao-opcoes" role="group" aria-label="Formatos de exportação">
-          <button id="btn-exportar" class="menu-exportacao-item" type="button" disabled>Exportar Excel (.xlsx)</button>
+          <button id="btn-exportar" class="menu-exportacao-item" type="button" disabled>Exportar Excel — processados (.xlsx)</button>
+          <button id="btn-exportar-filtrados" class="menu-exportacao-item" type="button" disabled>Exportar Excel — somente filtrados (.xlsx)</button>
           <button id="btn-exportar-pdf" class="menu-exportacao-item" type="button" disabled>Exportar PDF (.pdf)</button>
+          <button id="btn-exportar-fotos" class="menu-exportacao-item" type="button" disabled>Exportar fotografias (.zip)</button>
         </div>
       </details>
       <button id="btn-imprimir-lista" class="btn btn-outline-dark" disabled>🖨️ Imprimir lista filtrada</button>
@@ -319,6 +350,23 @@
     </div>
   </div>
 
+  <div id="modal-foto" class="modal-foto" aria-hidden="true">
+    <div class="modal-foto-conteudo" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-foto">
+      <div id="titulo-modal-foto" class="modal-foto-titulo">📷 Registro fotográfico solicitado</div>
+      <div class="text-muted small">Bem de dependência “Não Localizados”</div>
+      <div id="foto-numero" class="modal-foto-numero">—</div>
+      <div id="foto-descricao" class="fw-semibold mb-2"></div>
+      <p class="mb-2">Este bem foi localizado. Recomenda-se uma fotografia para documentar a localização. <strong>A foto é opcional</strong>.</p>
+      <div class="alert alert-warning py-2 small mb-2">Se continuar sem foto, o registro permanecerá <strong>Localizado — Foto pendente</strong>. A imagem poderá ser adicionada depois, pela lista.</div>
+      <input id="foto-arquivo" type="file" accept="image/*" capture="environment" hidden aria-label="Capturar ou selecionar foto do patrimônio">
+      <div id="foto-status-envio" class="small text-muted" role="status"></div>
+      <div class="modal-foto-acoes">
+        <button id="btn-foto-capturar" class="btn btn-primary" type="button">📷 Tirar / escolher foto</button>
+        <button id="btn-foto-continuar" class="btn btn-outline-secondary" type="button">Continuar sem foto</button>
+      </div>
+    </div>
+  </div>
+
 <script>
     let dadosPlanilha=[],foraDaLista=[],processedSet=new Set();
     let indicePatrimonio=new Map();
@@ -328,6 +376,9 @@
     let ultimaAcao=null;
     let audioCtx=null;
     let historicoAuditoria=[];
+    let modoNaoLocalizados=false;
+    let filtroFotosPendentes=false;
+    let leituraEmAndamento=false;
     let conferenteAtual=localStorage.getItem('inventarioConferenteNome')||'';
 
     const els={
@@ -338,6 +389,8 @@
       tabelaContainer:document.getElementById('tabela-container'),
       btnExport:document.getElementById('btn-exportar'),
       btnPdf:document.getElementById('btn-exportar-pdf'),
+      btnFiltrados:document.getElementById('btn-exportar-filtrados'),
+      btnFotos:document.getElementById('btn-exportar-fotos'),
       btnImprimirLista:document.getElementById('btn-imprimir-lista'),
       btnImprimirEtiquetas:document.getElementById('btn-imprimir-etiquetas'),
       filtroCentro:document.getElementById('filtro-centro'),
@@ -368,6 +421,12 @@
       // Remove zeros à esquerda, mas mantém pelo menos um caractere se for só zero
       return normalized.replace(/^0+/, '') || '0';
     };
+
+    // DEPENDÊNCIA das primeiras linhas do XLSX (B13/B14 no modelo de Taquari).
+    const pertenceDependenciaNaoLocalizados = setor => /\bNAO\s+LOCALIZAD[OA]S?\b/.test(String(setor||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase());
+    const exigeFoto = item => Boolean(item && (item.origemNaoLocalizados || pertenceDependenciaNaoLocalizados(item.setor)));
+    const fotoPendente = item => exigeFoto(item) && (item.status==='localizado'||item.status==='antigo') && item.statusFoto!=='registrada';
+    const textoStatusFoto = item => !exigeFoto(item)?'Não se aplica':item.statusFoto==='registrada'?'Registrada':fotoPendente(item)?'Pendente':'Não se aplica';
 
     // Classifica um número "fora da lista" como patrimônio novo ou antigo
     // Padrão adotado: 6 dígitos ou mais = novo | 5 dígitos ou menos = antigo
@@ -403,7 +462,10 @@
       fora:'Fora da lista',
       'ja-processado':'Já processado',
       invalido:'Leitura inválida',
-      desfeito:'Desfeito'
+      desfeito:'Desfeito',
+      'fora-diligencia':'Fora da diligência',
+      'foto-pendente':'Foto pendente',
+      'foto-registrada':'Foto registrada'
     };
 
     function registrarAuditoria(entrada){
@@ -426,6 +488,8 @@
         if(typeof item.observacao!=='string')item.observacao='';
         if(typeof item.imprimirEtiqueta!=='boolean')item.imprimirEtiqueta=false;
         if(typeof item.conferente!=='string')item.conferente='';
+        if(typeof item.origemNaoLocalizados!=='boolean')item.origemNaoLocalizados=pertenceDependenciaNaoLocalizados(item.setor);
+        if(!item.statusFoto)item.statusFoto=fotoPendente(item)?'pendente':'nao-se-aplica';
       });
       foraDaLista.forEach(item=>{
         if(!item.uid)item.uid=`fora-${Date.now()}-${seq++}`;
@@ -434,6 +498,18 @@
         if(typeof item.conferente!=='string')item.conferente='';
         if(item.tipoNumero!=='novo'&&item.tipoNumero!=='antigo')item.tipoNumero=classificarNumeroFora(item.numero);
       });
+    }
+
+    function atualizarModoDiligencia(){
+      document.getElementById('modo-nao-localizados').checked=modoNaoLocalizados;
+      document.getElementById('faixa-diligencia').style.display=modoNaoLocalizados?'block':'none';
+    }
+    function atualizarIndicadoresFotos(){
+      const pendentes=dadosPlanilha.filter(fotoPendente).length;
+      const btn=document.getElementById('btn-fotos-pendentes');
+      btn.textContent=`📷 Fotos pendentes (${pendentes})`;
+      btn.setAttribute('aria-pressed',String(filtroFotosPendentes));
+      els.btnFotos.disabled=!dadosPlanilha.some(i=>i.statusFoto==='registrada');
     }
 
     function reconstruirIndice(){
@@ -492,6 +568,7 @@
         chip.onclick=()=>{if(controle.type==='checkbox')controle.checked=false;else controle.value='';atualizarTabela();};
         el.appendChild(chip);
       });
+      if(filtroFotosPendentes){const chip=document.createElement('button');chip.type='button';chip.className='filtro-chip';chip.textContent='Fotos pendentes ×';chip.onclick=()=>{filtroFotosPendentes=false;atualizarTabela();};el.appendChild(chip);}
       if(el.childElementCount){const limpar=document.createElement('button');limpar.type='button';limpar.className='btn btn-link btn-sm';limpar.textContent='Limpar filtros';limpar.onclick=limparFiltros;el.appendChild(limpar);}
     }
 
@@ -554,6 +631,8 @@
         foraDaLista=dados.foraDaLista||[];
         processedSet=new Set(dados.processedSet||[]);
         historicoAuditoria=dados.historicoAuditoria||[];
+        modoNaoLocalizados=Boolean(dados.modoNaoLocalizados);
+        atualizarModoDiligencia();
         garantirCamposAuxiliares();
         reconstruirIndice();
         atualizarInfoUnidade();
@@ -562,6 +641,7 @@
         atualizarResumoVisual();
         els.tabelaContainer.classList.remove('d-none');
         els.btnExport.disabled=false;
+        els.btnFiltrados.disabled=false;
         els.btnPdf.disabled=false;
         els.btnImprimirLista.disabled=false;
         preencherFiltros();
@@ -650,6 +730,7 @@
               unidade,
               centroCusto,
               setor:dependencia,
+              origemNaoLocalizados:pertenceDependenciaNaoLocalizados(dependencia),
               localizacao,
               dataAquisicao,
               numeroSerie:normalize(numeroSerie),
@@ -683,6 +764,7 @@
               unidade,
               centroCusto,
               setor:dependencia,
+              origemNaoLocalizados:pertenceDependenciaNaoLocalizados(dependencia),
               localizacao,
               status:'nao-localizado',
               dataHora:'',
@@ -749,6 +831,8 @@
         }
 
         dadosPlanilha=manterProgressoExistente(dadosTodasAbas,dadosPlanilha);
+        modoNaoLocalizados=false;
+        atualizarModoDiligencia();
         garantirCamposAuxiliares();
         reconstruirIndice();
         preencherFiltros();
@@ -757,6 +841,7 @@
         atualizarResumoVisual();
         els.tabelaContainer.classList.remove('d-none');
         els.btnExport.disabled=false;
+        els.btnFiltrados.disabled=false;
         els.btnPdf.disabled=false;
         els.btnImprimirLista.disabled=false;
         salvarDados();
@@ -780,7 +865,7 @@
       return novos.map(item=>{
         const chave=`${normalizeWithZeroTrim(item.patrimonio)}|${normalizeWithZeroTrim(item.antigo)}|${item.centroCusto||''}`;
         const antigo=anteriorPorChave.get(chave);
-        return antigo?{...item,status:antigo.status,dataHora:antigo.dataHora,observacao:antigo.observacao||'',imprimirEtiqueta:Boolean(antigo.imprimirEtiqueta)}:item;
+        return antigo?{...item,status:antigo.status,dataHora:antigo.dataHora,observacao:antigo.observacao||'',imprimirEtiqueta:Boolean(antigo.imprimirEtiqueta),conferente:antigo.conferente||'',statusFoto:antigo.statusFoto||'nao-se-aplica',fotoId:antigo.fotoId||'',dataHoraFoto:antigo.dataHoraFoto||'',conferenteFoto:antigo.conferenteFoto||''}:item;
       });
     }
 
@@ -790,6 +875,162 @@
       
       els.filtroCentro.innerHTML='<option value="">Todos</option>'+centros.map(c=>`<option>${c}</option>`).join('');
       els.filtroSetor.innerHTML='<option value="">Todos</option>'+setores.map(s=>`<option>${s}</option>`).join('');
+    }
+
+    // Fotografias ficam no IndexedDB, fora do localStorage (evita limite de tamanho).
+    const DB_FOTOS='inventario-patrimonial-fotografias';
+    function abrirBancoFotos(){
+      return new Promise((resolve,reject)=>{
+        if(!('indexedDB' in window))return reject(new Error('IndexedDB indisponível neste navegador'));
+        const req=indexedDB.open(DB_FOTOS,1);
+        req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('fotos'))req.result.createObjectStore('fotos');};
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error||new Error('Falha ao abrir armazenamento de fotografias'));
+      });
+    }
+    async function escreverFotoLocal(id,blob){
+      const db=await abrirBancoFotos();
+      try{await new Promise((resolve,reject)=>{
+        const tx=db.transaction('fotos','readwrite');
+        tx.objectStore('fotos').put(blob,id);
+        tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+      });}finally{db.close();}
+    }
+    async function lerFotoLocal(id){
+      const db=await abrirBancoFotos();
+      try{return await new Promise((resolve,reject)=>{
+        const req=db.transaction('fotos','readonly').objectStore('fotos').get(id);
+        req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);
+      });}finally{db.close();}
+    }
+    async function removerFotoLocal(id){
+      if(!id)return;
+      const db=await abrirBancoFotos();
+      try{await new Promise((resolve,reject)=>{
+        const tx=db.transaction('fotos','readwrite');tx.objectStore('fotos').delete(id);
+        tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+      });}finally{db.close();}
+    }
+    async function limparBancoFotos(){
+      const db=await abrirBancoFotos();
+      try{await new Promise((resolve,reject)=>{
+        const tx=db.transaction('fotos','readwrite');tx.objectStore('fotos').clear();
+        tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+      });}finally{db.close();}
+    }
+    async function comprimirFoto(file){
+      // Limitar dimensões para preservar espaço no celular, mantendo identificação visual.
+      const url=URL.createObjectURL(file);
+      try{
+        const img=new Image();
+        await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(new Error('Imagem inválida'));img.src=url;});
+        const max=1600,escala=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.max(1,Math.round(img.naturalWidth*escala));
+        canvas.height=Math.max(1,Math.round(img.naturalHeight*escala));
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        return await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Falha ao comprimir imagem')),'image/jpeg',.83));
+      }finally{URL.revokeObjectURL(url);}
+    }
+    let sessaoFoto=null;
+    function fecharModalFoto(){
+      document.getElementById('modal-foto').style.display='none';
+      document.getElementById('modal-foto').setAttribute('aria-hidden','true');
+      const sessao=sessaoFoto;sessaoFoto=null;
+      if(sessao){sessao.resolve();if(sessao.reabrirScanner){
+        ajustarModalScannerAoTeclado();
+        document.getElementById('scanner-modal').style.display='flex';
+        startScanner();
+      }}
+    }
+    function solicitarFotoOpcional(item,reabrirScanner=false){
+      if(sessaoFoto)return Promise.resolve();
+      return new Promise(async resolve=>{
+        sessaoFoto={item,resolve,reabrirScanner};
+        document.getElementById('foto-numero').textContent=item.patrimonio||item.antigo||'';
+        document.getElementById('foto-descricao').textContent=item.descricao||'';
+        const status=document.getElementById('foto-status-envio');
+        status.textContent='';
+        document.getElementById('foto-arquivo').value='';
+        document.getElementById('modal-foto').style.display='flex';
+        document.getElementById('modal-foto').setAttribute('aria-hidden','false');
+        document.getElementById('btn-foto-continuar').textContent=item.statusFoto==='registrada'?'Voltar':'Continuar sem foto';
+        document.getElementById('btn-foto-capturar').textContent=item.statusFoto==='registrada'?'📷 Substituir foto':'📷 Tirar / escolher foto';
+        document.getElementById('btn-foto-continuar').focus();
+        if(item.statusFoto==='registrada' && item.fotoId){
+          try{const blob=await lerFotoLocal(item.fotoId);
+            if(blob && sessaoFoto?.item===item){
+              status.textContent='Foto já registrada. Use “Substituir foto” para atualizar.';
+              const link=document.createElement('button');link.type='button';link.className='btn btn-link btn-sm d-block mt-1';link.textContent='Visualizar foto registrada';
+              link.onclick=()=>{const url=URL.createObjectURL(blob);const janela=window.open(url,'_blank');if(!janela)mostrarFeedback('Habilite pop-ups para visualizar a foto','warning',false);setTimeout(()=>URL.revokeObjectURL(url),60000);};
+              status.appendChild(link);
+            }
+          }catch(err){console.warn('Foto indisponível',err);}
+        }
+      });
+    }
+    document.getElementById('btn-foto-continuar').addEventListener('click',()=>{
+      const item=sessaoFoto?.item;
+      if(!item)return;
+      if(item.statusFoto!=='registrada'){
+        item.statusFoto='pendente';
+        salvarDados();atualizarTabela();
+      }
+      fecharModalFoto();
+    });
+    document.getElementById('btn-foto-capturar').addEventListener('click',()=>document.getElementById('foto-arquivo').click());
+    document.getElementById('foto-arquivo').addEventListener('change',async e=>{
+      const arquivo=e.target.files?.[0],item=sessaoFoto?.item;
+      if(!arquivo||!item)return;
+      const status=document.getElementById('foto-status-envio');
+      const btnCapturar=document.getElementById('btn-foto-capturar');
+      const btnContinuar=document.getElementById('btn-foto-continuar');
+      btnCapturar.disabled=btnContinuar.disabled=true;
+      status.textContent='Salvando fotografia neste dispositivo...';
+      try{
+        if(!arquivo.type.startsWith('image/'))throw new Error('Selecione um arquivo de imagem');
+        const blob=await comprimirFoto(arquivo);
+        const id=`foto:${item.uid}`;
+        await escreverFotoLocal(id,blob);
+        item.fotoId=id;item.statusFoto='registrada';
+        item.dataHoraFoto=new Date().toLocaleString('pt-BR');
+        item.conferenteFoto=conferenteAtual.trim()||'Não informado';
+        registrarAuditoria({numero:item.patrimonio||item.antigo,tipo:'foto-registrada',detalhe:'Fotografia armazenada no dispositivo'});
+        salvarDados();atualizarTabela();
+        mostrarFeedback('Fotografia registrada no dispositivo','success',false);
+        fecharModalFoto();
+      }catch(error){
+        status.textContent=`Não foi possível salvar a foto: ${error.message}. Você pode tentar novamente ou continuar sem foto.`;
+        mostrarFeedback('Erro ao salvar fotografia','warning',false);
+      }finally{btnCapturar.disabled=btnContinuar.disabled=false;}
+    });
+    async function exportarFotosZip(){
+      const itens=dadosPlanilha.filter(i=>i.statusFoto==='registrada'&&i.fotoId);
+      if(!itens.length){mostrarFeedback('Nenhuma fotografia registrada para exportar','warning',false);return;}
+      if(typeof JSZip==='undefined'){mostrarFeedback('Biblioteca ZIP indisponível. Verifique a conexão de internet.','warning',false);return;}
+      const zip=new JSZip();let total=0;
+      const manifest=['Patrimonio;Aba;Dependencia;DataHoraFoto;ConferenteFoto;Arquivo'];
+      const csv=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+      for(const item of itens){
+        try{
+          const blob=await lerFotoLocal(item.fotoId);
+          if(!blob)continue;
+          const numero=String(item.patrimonio||item.antigo).replace(/[^0-9]/g,'');
+          const nome=`${numero}_${String(item.uid).replace(/[^a-zA-Z0-9_-]/g,'_')}.jpg`;
+          zip.file(nome,blob);
+          manifest.push([numero,item.abaOrigem||'',item.setor||'',item.dataHoraFoto||'',item.conferenteFoto||'',nome].map(csv).join(';'));
+          total++;
+        }catch(error){console.warn('Falha ao exportar fotografia',item.uid,error);}
+      }
+      if(!total){mostrarFeedback('As fotos não foram encontradas no armazenamento local','warning',false);return;}
+      zip.file('manifesto_fotografias.csv','\uFEFF'+manifest.join('\r\n'));
+      try{
+        const arquivo=await zip.generateAsync({type:'blob'});
+        const url=URL.createObjectURL(arquivo),a=document.createElement('a');
+        a.href=url;a.download=`fotografias_inventario_${new Date().toISOString().slice(0,10)}.zip`;
+        document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+        mostrarFeedback(`${total} fotografia(s) exportada(s) em ZIP`,'info',false);
+      }catch(error){mostrarFeedback('Falha na exportação das fotos: '+error.message,'warning',false);}
     }
 
     let confirmacaoForaEmAndamento=false;
@@ -833,7 +1074,10 @@
         setTimeout(()=>btnOk.focus(),0);
       });
     }
-    function processarNumero(num){
+    async function processarNumero(num){
+      if(leituraEmAndamento)return;
+      leituraEmAndamento=true;
+      try{
       const numero=normalizeWithZeroTrim(num);
       if(!numero)return;
 
@@ -865,6 +1109,9 @@
         const statusAnterior=encontrado.status;
         const dataHoraAnterior=encontrado.dataHora;
         const conferenteAnterior=encontrado.conferente;
+        const statusFotoAnterior=encontrado.statusFoto;
+        const fotoIdAnterior=encontrado.fotoId;
+        let deveSolicitarFoto=false;
         const nomeConferente=conferenteAtual.trim()||'Não informado';
         if(encontrado.status==='localizado'||encontrado.status==='antigo'){
           encontrado.dataHora=dataHora;
@@ -877,19 +1124,46 @@
           encontrado.conferente=nomeConferente;
           mostrarFeedback('Patrimônio localizado!','success','novo');
           registrarAuditoria({numero,tipo:'localizado'});
+          deveSolicitarFoto=exigeFoto(encontrado)&&encontrado.statusFoto!=='registrada';
         }else{
           encontrado.status='antigo';
           encontrado.dataHora=dataHora;
           encontrado.conferente=nomeConferente;
           mostrarFeedback('Etiqueta antiga localizada!','info','novo');
           registrarAuditoria({numero,tipo:'antigo'});
+          deveSolicitarFoto=exigeFoto(encontrado)&&encontrado.statusFoto!=='registrada';
         }
-        ultimaAcao={tipo:'planilha',uid:encontrado.uid,numero,statusAnterior,dataHoraAnterior,conferenteAnterior};
+        if(deveSolicitarFoto){
+          encontrado.statusFoto='pendente';
+          registrarAuditoria({numero,tipo:'foto-pendente',detalhe:'Dependência de Não Localizados — foto opcional'});
+        }
+        ultimaAcao={tipo:'planilha',uid:encontrado.uid,numero,statusAnterior,dataHoraAnterior,conferenteAnterior,statusFotoAnterior,fotoIdAnterior};
+        processedSet.add(numero);
+        atualizarTabela();
+        atualizarResumoVisual();
+        salvarDados();
+        els.btnDesfazer.disabled=false;
+        if(deveSolicitarFoto){
+          // Liberar a câmera do scanner antes de abrir o capturador de fotografias.
+          const scannerEstavaAberto=document.getElementById('scanner-modal').style.display==='flex';
+          if(scannerEstavaAberto){
+            document.getElementById('scanner-modal').style.display='none';
+            await stopScanner();
+          }
+          await solicitarFotoOpcional(encontrado,scannerEstavaAberto);
+        }
+        return;
       }else{
+        if(modoNaoLocalizados){
+          mostrarFeedback(`Fora da diligência: patrimônio ${numero} não consta na lista de procura`,'warning',false);
+          registrarAuditoria({numero,tipo:'fora-diligencia',detalhe:'Leitura ignorada — não faz parte da relação de diligência'});
+          salvarDados();
+          return;
+        }
         if(confirmacaoForaEmAndamento)return;
         confirmacaoForaEmAndamento=true;
         let confirmado=false;
-        try{confirmado=window.confirm(`O patrimônio ${numero} não consta na lista carregada.\n\nDeseja registrar como FORA DA LISTA?`);}
+        try{confirmado=await confirmarRegistroForaDaLista(numero);}
         finally{confirmacaoForaEmAndamento=false;}
         if(!confirmado){
           ultimoScanBruto={numero,timestamp:Date.now()};
@@ -911,6 +1185,7 @@
       atualizarResumoVisual();
       salvarDados();
       els.btnDesfazer.disabled=false;
+      }finally{leituraEmAndamento=false;}
     }
 
     function desfazerUltimaLeitura(){
@@ -926,6 +1201,10 @@
         if(item){
           item.status=ultimaAcao.statusAnterior;
           item.dataHora=ultimaAcao.dataHoraAnterior;
+          item.conferente=ultimaAcao.conferenteAnterior||'';
+          item.statusFoto=ultimaAcao.statusFotoAnterior||'nao-se-aplica';
+          if(item.fotoId && item.fotoId!==ultimaAcao.fotoIdAnterior)removerFotoLocal(item.fotoId).catch(console.warn);
+          item.fotoId=ultimaAcao.fotoIdAnterior||'';
         }
       }
 
@@ -954,7 +1233,8 @@
       const textoBase=`${i.patrimonio||''} ${i.antigo||''} ${i.descricao||''} ${i.centroCusto||''} ${i.setor||''} ${i.localizacao||''} ${i.observacao||''}`;
       const textoMatch=!filtroTexto||normalize(textoBase).includes(filtroTexto);
       const etiquetaMatch=!els.filtroEtiqueta.checked||Boolean(i.imprimirEtiqueta);
-      return centroMatch&&setorMatch&&statusMatch&&textoMatch&&etiquetaMatch;
+      const fotoMatch=!filtroFotosPendentes||fotoPendente(i);
+      return centroMatch&&setorMatch&&statusMatch&&textoMatch&&etiquetaMatch&&fotoMatch;
     }
 
     function obterItensFiltrados(){
@@ -1004,6 +1284,7 @@
         quantidadeVisivel++;
 
         const statusLabel={localizado:'Localizado',antigo:'Etiqueta Antiga',fora:'Fora da Lista','nao-localizado':'Não Localizado'}[i.status]||i.status;
+        const fotoBotao=fora||!exigeFoto(i)||i.status==='nao-localizado'?'':`<button type="button" data-action="foto" class="foto-badge ${i.statusFoto==='registrada'?'foto-registrada':'foto-pendente'}" title="${i.statusFoto==='registrada'?'Substituir ou consultar fotografia':'Adicionar fotografia ao bem'}">${i.statusFoto==='registrada'?'📷 Foto registrada':'📷 Foto pendente'}</button>`;
         const tr=document.createElement('tr');
         tr.dataset.uid=i.uid;
         tr.dataset.tipo=fora?'fora':'bem';
@@ -1011,7 +1292,7 @@
           <td>${i.patrimonio||'-'}</td>
           <td>${i.antigo||'-'}</td>
           <td>${i.descricao||'-'}</td>
-          <td>${statusLabel}</td>
+          <td>${statusLabel}${fotoBotao?`<div class="mt-1">${fotoBotao}</div>`:''}</td>
           <td><input class="form-control form-control-sm obs-input" data-action="observacao" value="${escapeHtml(i.observacao||'')}" placeholder="Observação do bem" aria-label="Observação do patrimônio"></td>
           <td class="text-center"><label class="etiqueta-click"><input type="checkbox" class="form-check-input label-check" data-action="etiqueta" ${i.imprimirEtiqueta?'checked':''} aria-label="Marcar para imprimir etiqueta"></label></td>
           <td>${i.dataHora||''}</td>
@@ -1041,11 +1322,20 @@
       document.getElementById('contagem-visivel').textContent=`Exibindo ${quantidadeVisivel} de ${dadosPlanilha.length+foraDaLista.length} itens`;
       atualizarIndicacaoFiltros();
       atualizarBotaoEtiquetas();
+      atualizarIndicadoresFotos();
     }
 
     function escapeHtml(valor){
       return String(valor??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
     }
+
+    els.tabelaBody.addEventListener('click',e=>{
+      const btn=e.target.closest('button[data-action="foto"]');
+      if(!btn)return;
+      const tr=btn.closest('tr[data-uid]');
+      const item=dadosPlanilha.find(i=>i.uid===tr?.dataset.uid);
+      if(item)solicitarFotoOpcional(item,false);
+    });
 
     els.tabelaBody.addEventListener('change',e=>{
       const alvo=e.target;
@@ -1256,6 +1546,7 @@
         foraDaLista,
         processedSet:Array.from(processedSet),
         historicoAuditoria,
+        modoNaoLocalizados,
         timestamp:new Date().toISOString()
       };
       localStorage.setItem('inventarioDados',JSON.stringify(dadosSalvar));
@@ -1363,44 +1654,48 @@
       doc.save(`inventario_patrimonial_${dataArquivo}.pdf`);
     }
 
-    function exportarExcel(){
-      // Preserva o comportamento padrão anterior: exportar os itens processados
-      // incluindo registros encontrados fora da lista.
-      const dadosExportar=[...dadosPlanilha,...foraDaLista.map(f=>{
-        const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
-        return {
-          patrimonio:tipoNumero==='novo'?f.numero:'',
-          antigo:tipoNumero==='antigo'?f.numero:'',
-          descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-',status:'fora',dataHora:f.dataHora,
-          observacao:f.observacao||'',imprimirEtiqueta:Boolean(f.imprimirEtiqueta),abaOrigem:'Fora da lista'
-        };
-      })].filter(item=>item.dataHora);
-
-      const linhas=dadosExportar.map(item=>({
-        'Registro Patrimonial':item.patrimonio,
-        'Registro Antigo':item.antigo,
-        'Descrição':item.descricao,
-        'Centro de Custo':item.centroCusto,
-        'Setor':item.setor,
-        'Localização':item.localizacao,
+    function linhasParaExcel(itens){
+      return itens.map(item=>({
+        'Registro Patrimonial':item.patrimonio||'',
+        'Registro Antigo':item.antigo||'',
+        'Descrição':item.descricao||'',
+        'Centro de Custo':item.centroCusto||'',
+        'Setor':item.setor||'',
+        'Localização':item.localizacao||'',
         'Aba de Origem':item.abaOrigem||'',
         'Status':{localizado:'Localizado',antigo:'Etiqueta Antiga',fora:'Fora da Lista','nao-localizado':'Não Localizado'}[item.status]||item.status,
         'Observação':item.observacao||'',
         'Imprimir etiqueta':item.imprimirEtiqueta?'SIM':'NÃO',
-        'Data/Hora Leitura':item.dataHora
+        'Data/Hora Leitura':item.dataHora||'',
+        'Evidência fotográfica':textoStatusFoto(item),
+        'Data/Hora Foto':item.dataHoraFoto||'',
+        'Conferente Foto':item.conferenteFoto||''
       }));
-
-      const ws=XLSX.utils.json_to_sheet(linhas);
-      ws['!cols']=[
-        {wch:20},{wch:20},{wch:48},{wch:34},{wch:28},{wch:28},{wch:24},{wch:20},{wch:45},{wch:18},{wch:22}
-      ];
+    }
+    function salvarArquivoExcel(itens,nomeAba,nomeArquivo){
+      if(!itens.length){mostrarFeedback('Nenhum registro para exportar','warning',false);return;}
+      const ws=XLSX.utils.json_to_sheet(linhasParaExcel(itens));
+      ws['!cols']=[{wch:20},{wch:20},{wch:48},{wch:34},{wch:28},{wch:28},{wch:24},{wch:20},{wch:45},{wch:18},{wch:22},{wch:23},{wch:22},{wch:24}];
       ws['!autofilter']={ref:ws['!ref']};
       ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft',state:'frozen'};
-
       const wb=XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb,ws,'Inventário Processado');
-      const dataArquivo=new Date().toISOString().slice(0,10);
-      XLSX.writeFile(wb,`inventario_processado_${dataArquivo}.xlsx`);
+      XLSX.utils.book_append_sheet(wb,ws,nomeAba);
+      XLSX.writeFile(wb,`${nomeArquivo}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+    function exportarExcelFiltrado(){
+      const itens=obterItensFiltrados();
+      // Aplica a mesma ordenação configurada na tabela visível.
+      const ordenados=ordenarItensVisiveis(itens.map((item,indice)=>({item,indice}))).map(p=>p.item);
+      salvarArquivoExcel(ordenados,'Inventário Filtrado','inventario_filtrado');
+    }
+
+    function exportarExcel(){
+      // Comportamento histórico: somente bens com data de leitura, inclusive fora da lista.
+      const dadosExportar=[...dadosPlanilha,...foraDaLista.map(f=>{
+        const tipoNumero=f.tipoNumero||classificarNumeroFora(f.numero);
+        return {...f,patrimonio:tipoNumero==='novo'?f.numero:'',antigo:tipoNumero==='antigo'?f.numero:'',descricao:'Item não listado',centroCusto:'Fora da lista',setor:'-',localizacao:'-',status:'fora',abaOrigem:'Fora da lista'};
+      })].filter(item=>item.dataHora);
+      salvarArquivoExcel(dadosExportar,'Inventário Processado','inventario_processado');
     }
 
     // Áudio e vibração de feedback
@@ -1687,6 +1982,7 @@
       els.filtroStatus.value = '';
       els.filtroTexto.value = '';
       els.filtroEtiqueta.checked = false;
+      filtroFotosPendentes=false;
       atualizarTabela();
       atualizarIndicacaoFiltros();
     }
@@ -1728,12 +2024,15 @@
     });
     
     els.btnLimpar.onclick=()=>{
-      if(confirm('Tem certeza que deseja limpar todos os dados? Esta ação não pode ser desfeita.')){
+      if(confirm('Tem certeza que deseja limpar todos os dados e fotografias salvas neste dispositivo? Esta ação não pode ser desfeita.')){
+        limparBancoFotos().catch(e=>console.warn('Fotos não puderam ser apagadas',e));
         localStorage.removeItem('inventarioDados');
         dadosPlanilha=[];
         foraDaLista=[];
         processedSet=new Set();
         historicoAuditoria=[];
+        modoNaoLocalizados=false;
+        atualizarModoDiligencia();
         ultimoScanBruto={numero:null,timestamp:0};
         ultimaAcao=null;
         els.btnDesfazer.disabled=true;
@@ -1742,6 +2041,8 @@
         atualizarResumoVisual();
         els.tabelaContainer.classList.add('d-none');
         els.btnExport.disabled=true;
+        els.btnFiltrados.disabled=true;
+        els.btnFotos.disabled=true;
         els.btnPdf.disabled=true;
         els.btnImprimirLista.disabled=true;
         atualizarBotaoEtiquetas();
@@ -1751,6 +2052,16 @@
       }
     };
     
+    document.getElementById('modo-nao-localizados').addEventListener('change',e=>{
+      modoNaoLocalizados=e.target.checked;
+      atualizarModoDiligencia();
+      salvarDados();
+      mostrarFeedback(modoNaoLocalizados?'Modo Não Localizados ativado':'Inventário normal ativado','info',false);
+    });
+    document.getElementById('btn-fotos-pendentes').addEventListener('click',()=>{
+      filtroFotosPendentes=!filtroFotosPendentes;
+      atualizarTabela();
+    });
     const aoAlterarFiltro=()=>{atualizarTabela();atualizarIndicacaoFiltros();};
     els.filtroCentro.onchange=aoAlterarFiltro;
     els.filtroSetor.onchange=aoAlterarFiltro;
@@ -1776,6 +2087,8 @@
     });
     document.getElementById('btn-registrar').addEventListener('click',registrarNumeroDigitado);
     els.btnExport.onclick=()=>{document.getElementById('menu-exportacao').open=false;exportarExcel();};
+    els.btnFiltrados.onclick=()=>{document.getElementById('menu-exportacao').open=false;exportarExcelFiltrado();};
+    els.btnFotos.onclick=()=>{document.getElementById('menu-exportacao').open=false;exportarFotosZip();};
     els.btnPdf.onclick=()=>{document.getElementById('menu-exportacao').open=false;exportarPDF();};
     document.addEventListener('click',e=>{
       const menu=document.getElementById('menu-exportacao');
@@ -1837,6 +2150,8 @@
 
     // Inicialização
     carregarDadosSalvos();
+    atualizarModoDiligencia();
+    atualizarIndicadoresFotos();
     atualizarIndicacaoFiltros();
     atualizarBotaoEtiquetas();
   </script>
