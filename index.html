@@ -124,9 +124,19 @@
     }
 
 
-    .modo-diligencia-controle{display:flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:.91rem}
-    .modo-diligencia-controle .form-check-input{width:2.55rem;height:1.32rem;cursor:pointer}
-    .modo-diligencia-controle .form-check-label{cursor:pointer;font-weight:650}
+    /* Controle de modo: estados com contraste claro, inclusive em telas externas e no celular. */
+    .modo-diligencia-controle{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 14px;font-size:.91rem;background:#e9f2ff;border:2px solid #0b5ed7;border-left:6px solid #0b5ed7;border-radius:10px;padding:11px 13px;transition:background .15s,border-color .15s}
+    .modo-diligencia-controle .form-check-input{width:3.2rem;height:1.7rem;margin:0;flex:none;cursor:pointer;background-color:#fff;border:2px solid #0b5ed7;background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%230b5ed7'/%3e%3c/svg%3e")}
+    .modo-diligencia-controle .form-check-input:checked{background-color:#8b4b00;border-color:#5c3100;background-image:url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e")}
+    .modo-diligencia-controle .form-check-input:focus-visible{box-shadow:0 0 0 .23rem rgba(13,110,253,.35);outline:2px solid #212529;outline-offset:2px}
+    .modo-diligencia-controle .form-check-label{cursor:pointer;font-weight:800;color:#06437d;font-size:1rem}
+    .modo-diligencia-controle .modo-estado{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#0b5ed7;color:#fff;font-size:.8rem;line-height:1.1;font-weight:800;letter-spacing:.015em}
+    .modo-diligencia-controle .modo-ajuda{color:#274664;font-size:.8rem}
+    .modo-diligencia-controle.modo-ativo{background:#fff1c2;border-color:#9a5100;border-left-color:#9a5100}
+    .modo-diligencia-controle.modo-ativo .form-check-label{color:#653400}
+    .modo-diligencia-controle.modo-ativo .modo-estado{background:#713900;color:#fff}
+    .modo-diligencia-controle.modo-ativo .modo-ajuda{color:#653400}
+    @media(max-width:767.98px){.modo-diligencia-controle{padding:10px;gap:8px}.modo-diligencia-controle .form-check-label{font-size:.94rem}.modo-diligencia-controle .modo-estado{font-size:.73rem}.modo-diligencia-controle .modo-ajuda{width:100%}}
     .faixa-diligencia{display:none;background:#fff3cd;border:1px solid #ffda6a;border-radius:7px;color:#664d03;padding:8px 12px;font-size:.85rem;margin-top:8px}
     .foto-badge{border-radius:5px;font-size:.75rem;font-weight:700;padding:3px 6px;display:inline-flex;align-items:center;gap:4px;white-space:normal;text-align:left}
     button.foto-badge{cursor:pointer;border:1px solid transparent}
@@ -200,12 +210,13 @@
 
 
   <div class="card p-3 mb-3">
-    <div class="modo-diligencia-controle mb-2">
+    <div class="modo-diligencia-controle mb-2" id="painel-modo-diligencia">
       <div class="form-check form-switch m-0 d-flex align-items-center gap-2">
-        <input class="form-check-input mt-0" type="checkbox" role="switch" id="modo-nao-localizados">
+        <input class="form-check-input mt-0" type="checkbox" role="switch" id="modo-nao-localizados" aria-describedby="estado-modo-diligencia">
         <label class="form-check-label" for="modo-nao-localizados">Modo Não Localizados</label>
       </div>
-      <span class="text-muted small">Ative ao trabalhar com uma relação de procura/diligência.</span>
+      <span id="estado-modo-diligencia" class="modo-estado" role="status" aria-live="polite">● INVENTÁRIO NORMAL</span>
+      <span class="modo-ajuda">Ative ao trabalhar com uma relação de procura/diligência.</span>
     </div>
     <div id="faixa-diligencia" class="faixa-diligencia" role="status"><strong>Modo Não Localizados ativo:</strong> leituras que não estão na planilha serão avisadas em amarelo como “Fora da Diligência”, sem registro como bem.</div>
     <label class="form-label fw-bold">Digite ou escaneie o número</label>
@@ -503,6 +514,8 @@
     function atualizarModoDiligencia(){
       document.getElementById('modo-nao-localizados').checked=modoNaoLocalizados;
       document.getElementById('faixa-diligencia').style.display=modoNaoLocalizados?'block':'none';
+      document.getElementById('painel-modo-diligencia').classList.toggle('modo-ativo',modoNaoLocalizados);
+      document.getElementById('estado-modo-diligencia').textContent=modoNaoLocalizados?'● NÃO LOCALIZADOS ATIVO':'● INVENTÁRIO NORMAL';
     }
     function atualizarIndicadoresFotos(){
       const pendentes=dadosPlanilha.filter(fotoPendente).length;
@@ -1027,7 +1040,13 @@
       try{
         const arquivo=await zip.generateAsync({type:'blob'});
         const url=URL.createObjectURL(arquivo),a=document.createElement('a');
-        a.href=url;a.download=`fotografias_inventario_${new Date().toISOString().slice(0,10)}.zip`;
+        // Nome do ZIP com o centro de custo do inventário; evita caracteres inválidos em arquivos.
+        const centroCusto=(itens.find(i=>i.centroCusto&&i.centroCusto!=='Não informado')?.centroCusto
+          || dadosPlanilha.find(i=>i.centroCusto&&i.centroCusto!=='Não informado')?.centroCusto
+          || 'Centro_de_Custo_Nao_Informado');
+        const nomeCentro=String(centroCusto).normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+          .replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'') || 'Centro_de_Custo_Nao_Informado';
+        a.href=url;a.download=`fotografias_inventario_${nomeCentro}.zip`;
         document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
         mostrarFeedback(`${total} fotografia(s) exportada(s) em ZIP`,'info',false);
       }catch(error){mostrarFeedback('Falha na exportação das fotos: '+error.message,'warning',false);}
